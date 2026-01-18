@@ -4,3 +4,5 @@ pillow
 scipy
 trimesh
 networkx
+opencv-python
+lxml
