@@ -297,6 +297,25 @@ class Stats:
             pass
 
 
+class WebOnlineMonitor:
+    def __init__(self, timeout=10):
+        self.last_active = time.time()
+        self.timeout = timeout
+        threading.Thread(target=self._watch, daemon=True).start()
+
+    def heartbeat(self):
+        self.last_active = time.time()
+
+    def _watch(self):
+        while True:
+            time.sleep(2)
+            if time.time() - self.last_active > self.timeout:
+                print("Web down, exit...")
+                os._exit(0)
+
+# WebOnlineMonitor: If 10s no heartbeat, shutdown
+monitor = WebOnlineMonitor(timeout=10)
+
 # ╔═══════════════════════════════════════════════════════════════════════════════╗
 # ║                     MODULE 1: CALIBRATION GENERATOR                           ║
 # ╚═══════════════════════════════════════════════════════════════════════════════╝
@@ -1021,7 +1040,7 @@ CUSTOM_CSS = """
 
 def create_app():
     with gr.Blocks(title="Lumina Studio", css=CUSTOM_CSS, theme=gr.themes.Soft()) as app:
-
+        
         # Header with Language Indicator
         with gr.Row():
             with gr.Column(scale=10):
@@ -1384,7 +1403,9 @@ def create_app():
             <p>💡 提示 Tip: 使用高质量的PLA/PETG透光材料可获得最佳效果 | Use high-quality translucent PLA/PETG for best results</p>
         </div>
         """)
-
+        # WebOnlineMonitor: Send heartbeat every 2s
+        timer = gr.Timer(2)
+        timer.tick(monitor.heartbeat)
     return app
 
 
