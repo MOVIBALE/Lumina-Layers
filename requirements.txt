@@ -6,3 +6,4 @@ trimesh
 scipy
 pystray
 lxml
+networkx
