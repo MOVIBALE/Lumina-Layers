@@ -282,8 +282,8 @@ class ColorSystem:
         },
         'map': {"White": 0, "Red": 1, "Yellow": 2, "Blue": 3},
         # 定位点顺序: TL, TR, BR, BL
-        'corner_labels': ["白色 (左上)", "红色 (右上)", "蓝色 (右下)", "黄色 (左下)"],
-        'corner_labels_en': ["White (TL)", "Red (TR)", "Blue (BR)", "Yellow (BL)"]
+        'corner_labels': ["白色 (左上)", "红色 (右上)", "黄色 (右下)", "蓝色 (左下)"],
+        'corner_labels_en': ["White (TL)", "Red (TR)", "Yellow (BR)", "Blue (BL)"]
     }
 
     @staticmethod
