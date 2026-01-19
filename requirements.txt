@@ -3,4 +3,7 @@ numpy
 pillow
 scipy
 trimesh
+opencv-python
 networkx
+opencv-python
+lxml
