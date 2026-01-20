@@ -548,12 +548,12 @@ def convert_image_to_3d(image_path, lut_path, target_width_mm, spacer_thick,
     else:
         total_layers = 5 + spacer_layers
         full_matrix = np.full((total_layers, target_h, target_w), -1, dtype=int)
-        full_matrix[0:5] = bottom_voxels
-
+        top_voxels = np.transpose(best_stacks, (2, 0, 1))
         spacer = np.full((target_h, target_w), -1, dtype=int)
         spacer[~mask_transparent] = 0
-        for z in range(5, total_layers):
+        for z in range(0, spacer_layers):
             full_matrix[z] = spacer
+        full_matrix[spacer_layers:] = top_voxels
 
     # Mesh generation
     scene = trimesh.Scene()
