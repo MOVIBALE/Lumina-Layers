@@ -114,13 +114,17 @@ def convert_image_to_3d(image_path, lut_path, target_width_mm, spacer_thick,
     transform[2, 2] = PrinterConfig.LAYER_HEIGHT  # Z
     
     print(f"[CONVERTER] Transform: XY={pixel_scale}mm/px, Z={PrinterConfig.LAYER_HEIGHT}mm/layer")
-    
+
     # 获取网格生成器
     mesher = get_mesher(modeling_mode)
     print(f"[CONVERTER] Using mesher: {mesher.__class__.__name__}")
-    
+
+    unique_materials = set(np.unique(material_matrix)) - {-1}
+    unique_materials = sorted([m for m in unique_materials if m >= 0])
+
     # 为每种材质生成网格
-    for mat_id in range(4):
+    used_slot_names = []
+    for mat_id in unique_materials:
         mesh = mesher.generate_mesh(full_matrix, mat_id, target_h)
         if mesh:
             mesh.apply_transform(transform)
@@ -131,11 +135,12 @@ def convert_image_to_3d(image_path, lut_path, target_width_mm, spacer_thick,
                 node_name=slot_names[mat_id], 
                 geom_name=slot_names[mat_id]
             )
+            used_slot_names.append(slot_names[mat_id])
             print(f"[CONVERTER] Added mesh for {slot_names[mat_id]}")
     
     # ========== 步骤6: 添加挂孔 ==========
     loop_added = False
-    slot_names_with_loop = slot_names
+    slot_names_with_loop = used_slot_names[:]
     
     if add_loop and loop_info is not None:
         try:
@@ -157,7 +162,7 @@ def convert_image_to_3d(image_path, lut_path, target_width_mm, spacer_thick,
                     node_name="Keychain_Loop", 
                     geom_name="Keychain_Loop"
                 )
-                slot_names_with_loop = slot_names + ["Keychain_Loop"]
+                slot_names_with_loop.append("Keychain_Loop")
                 loop_added = True
                 print(f"[CONVERTER] Loop added successfully")
         except Exception as e:
