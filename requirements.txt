@@ -5,3 +5,5 @@ Pillow
 trimesh>=4.0.0
 scipy
 pystray
+networkx
+lxml
