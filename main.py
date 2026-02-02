@@ -1,18 +1,13 @@
 """
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║                          LUMINA STUDIO v1.4.2                                 ║
-║                    Multi-Material 3D Print Color System                       ║
-╠═══════════════════════════════════════════════════════════════════════════════╣
-║  Author: [MIN]                                                                ║
-║  License: CC BY-NC-SA 4.0                                                     ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
+Lumina Studio v1.4.2
+Multi-Material 3D Print Color System
 
 Main Entry Point
 """
 
 import os
 
-# 设置 Gradio 临时目录到项目目录，避免写入 C 盘临时目录
+# Set Gradio temp directory to project directory
 _PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 _GRADIO_TEMP = os.path.join(_PROJECT_ROOT, "output", ".gradio_cache")
 os.makedirs(_GRADIO_TEMP, exist_ok=True)
@@ -26,12 +21,13 @@ import gradio as gr     # type:ignore
 from ui.layout_new import create_app
 from ui.styles import CUSTOM_CSS
 
-HAS_DISPLAY = os.environ.get("DISPLAY") or os.name == "nt"
-if HAS_DISPLAY:
-    try:
-        from core.tray import LuminaTray
-    except ImportError:
-        HAS_DISPLAY = False
+HAS_DISPLAY = False  # Disable system tray to avoid conflicts
+LuminaTray = None  # type: ignore
+try:
+    from core.tray import LuminaTray
+    HAS_TRAY = True
+except ImportError:
+    HAS_TRAY = False
         
 def find_available_port(start_port=7860, max_attempts=1000):
     import socket
@@ -54,15 +50,16 @@ if __name__ == "__main__":
     PORT = 7860 # Default fallback
     try:
         PORT = find_available_port(7860)
-        tray = LuminaTray(port=PORT)
+        if LuminaTray is not None:
+            tray = LuminaTray(port=PORT)
     except Exception as e:
-        print(f"⚠️ Warning: Failed to initialize tray: {e}")
+        print(f"[WARN] Failed to initialize tray: {e}")
 
-    # 2. Start Browser Thread (Fix: Added args=(PORT,))
+    # 2. Start Browser Thread
     threading.Thread(target=start_browser, args=(PORT,), daemon=True).start()
 
     # 3. Launch Gradio App
-    print(f"✨ Lumina Studio is running on http://127.0.0.1:{PORT}")
+    print(f"[INFO] Lumina Studio is running on http://127.0.0.1:{PORT}")
     app = create_app()
 
     try:
@@ -81,14 +78,13 @@ if __name__ == "__main__":
     except BaseException as e:
         raise
 
-    # 4. Start System Tray (Blocking) or Keep Alive
+    # 4. Start System Tray or Keep Alive
     if tray:
         try:
-            print("🚀 Starting System Tray...")
+            print("[INFO] Starting System Tray...")
             tray.run()
         except Exception as e:
-            print(f"⚠️ Warning: System tray crashed: {e}")
-            # Fallback if tray crashes immediately
+            print(f"[WARN] System tray crashed: {e}")
             try:
                 while True:
                     time.sleep(1)
@@ -101,5 +97,5 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             pass
 
-    print("Stopping...")
+    print("[INFO] Stopping...")
     os._exit(0)

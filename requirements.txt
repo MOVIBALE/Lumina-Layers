@@ -8,3 +8,13 @@ pystray
 pytz
 networkx
 lxml
+
+# GPU Acceleration (Optional but Recommended for NVIDIA GPUs)
+# For CUDA 12.1 support, install PyTorch with CUDA:
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#
+# For CUDA 11.8 support:
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+#
+# For CPU only (no GPU):
+# pip install torch torchvision

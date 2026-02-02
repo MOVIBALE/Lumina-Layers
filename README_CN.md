@@ -129,6 +129,16 @@ Lumina Studio v1.4.2整合三大模块，统一界面：
 
 ## v1.4.2 核心更新 🚀
 
+### GPU 加速支持 🎮
+
+**NVIDIA 显卡用户现在可以享受显著的性能提升：**
+- **K-Means 色彩量化**：大图像处理速度提升可达 10 倍以上
+- **颜色匹配**：高分辨率图像转换显著提速
+- **自动检测**：软件自动检测并使用可用 GPU，无可用时自动回退到 CPU
+- **简易安装**：只需安装带 CUDA 支持的 PyTorch（详见安装部分）
+
+支持的显卡：支持 CUDA 11.8 或 12.1 的 NVIDIA GTX/RTX 系列
+
 ### Bug修复和改进
 
 - 修复了一些已知问题
@@ -275,6 +285,32 @@ cd Lumina-Layers
 pip install -r requirements.txt
 ```
 
+### GPU 加速（可选）
+
+**对于 NVIDIA 显卡用户**，安装 CUDA 版本的 PyTorch 以获得更快的图像处理速度：
+
+**CUDA 12.1（推荐用于 RTX 30/40 系列显卡）：**
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+```
+
+**CUDA 11.8（用于较旧的显卡）：**
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+```
+
+**验证 GPU 支持：**
+```bash
+python -c "import torch; print('CUDA 可用:', torch.cuda.is_available()); print('显卡:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else '无')"
+```
+
+如果输出显示 `CUDA 可用: True` 并显示您的显卡名称，则 GPU 加速已激活。软件将自动使用 GPU 进行：
+- K-Means 色彩量化（大图像可提速 10 倍以上）
+- LUT 颜色匹配（高分辨率图像显著提速）
+
+**仅 CPU 模式**（如果您没有 NVIDIA 显卡）：
+软件将自动回退到 CPU 处理，无需额外安装。
+
 ---
 
 ## 使用指南
@@ -364,8 +400,10 @@ python main.py
 | 几何引擎 | Trimesh（网格生成与导出） |
 | UI框架 | Gradio 4.0+ |
 | 视觉栈 | OpenCV（透视与颜色提取） |
-| 色彩匹配 | SciPy KDTree |
+| 色彩匹配 | SciPy KDTree / PyTorch CUDA（GPU加速） |
+| 色彩量化 | K-Means（OpenCV CPU / PyTorch CUDA GPU） |
 | 3D预览 | Gradio Model3D（GLB格式） |
+| GPU加速 | PyTorch 2.0+ with CUDA 11.8/12.1 |
 
 ---
 

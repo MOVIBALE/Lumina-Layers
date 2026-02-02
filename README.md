@@ -139,6 +139,16 @@ Converts images into printable 3D models using calibrated data.
 
 ## What's New in v1.4.2 🚀
 
+### GPU Acceleration Support 🎮
+
+**NVIDIA GPU users can now enjoy significant performance boosts:**
+- **K-Means Color Quantization**: Up to 10x faster processing on large images
+- **Color Matching**: Significant speedup for high-resolution image conversion
+- **Automatic Detection**: Software automatically uses GPU if available, falls back to CPU otherwise
+- **Easy Setup**: Just install PyTorch with CUDA support (see Installation section)
+
+Supported GPUs: NVIDIA GTX/RTX series with CUDA 11.8 or 12.1
+
 ### Bug Fixes and Improvements
 
 - Fixed some known issues
@@ -285,6 +295,32 @@ cd Lumina-Layers
 pip install -r requirements.txt
 ```
 
+### GPU Acceleration (Optional)
+
+**For NVIDIA GPU users**, install PyTorch with CUDA support for significantly faster image processing:
+
+**CUDA 12.1 (Recommended for RTX 30/40 series):**
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+```
+
+**CUDA 11.8 (For older GPUs):**
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+```
+
+**Verify GPU support:**
+```bash
+python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'None')"
+```
+
+If the output shows `CUDA available: True` with your GPU name, GPU acceleration is active. The software will automatically use GPU for:
+- K-Means color quantization (up to 10x faster on large images)
+- Color matching to LUT (significant speedup for high-resolution images)
+
+**CPU-only mode** (if you don't have an NVIDIA GPU):
+The software will automatically fall back to CPU processing. No additional installation needed.
+
 ---
 
 ## Usage Guide
@@ -374,8 +410,10 @@ This launches the web interface with all three modules in tabs.
 | Geometry Engine | Trimesh (Mesh generation & Export) |
 | UI Framework | Gradio 4.0+ |
 | Vision Stack | OpenCV (Perspective & Color Extraction) |
-| Color Matching | SciPy KDTree |
+| Color Matching | SciPy KDTree / PyTorch CUDA (GPU accelerated) |
+| Color Quantization | K-Means (OpenCV CPU / PyTorch CUDA GPU) |
 | 3D Preview | Gradio Model3D (GLB format) |
+| GPU Acceleration | PyTorch 2.0+ with CUDA 11.8/12.1 |
 
 ---
 

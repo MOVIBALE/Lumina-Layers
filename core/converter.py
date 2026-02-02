@@ -15,7 +15,12 @@ from config import PrinterConfig, ColorSystem, PREVIEW_SCALE, PREVIEW_MARGIN, OU
 from utils import Stats, safe_fix_3mf_names
 
 # Import refactored modules
-from core.image_processing import LuminaImageProcessor
+try:
+    from core.image_processing_cuda import LuminaImageProcessorCUDA as LuminaImageProcessor
+    print("[OK] Using CUDA-accelerated image processor")
+except ImportError:
+    from core.image_processing import LuminaImageProcessor
+    print("[WARN] Using CPU image processor (CUDA not available)")
 from core.mesh_generators import get_mesher
 from core.geometry_utils import create_keychain_loop
 
