@@ -8,11 +8,7 @@ Physics-Based Multi-Material FDM Color System
 
 ## Project Status
 
-<<<<<<< Updated upstream
-**Current Version**: v1.4.2  
-=======
 **Current Version**: v1.5.0  
->>>>>>> Stashed changes
 **License**: CC BY-NC-SA 4.0 (with Commercial Exemption)  
 **Nature**: Non-profit independent implementation, open-source community project
 
@@ -103,11 +99,7 @@ You **do NOT need to ask for permission**. You automatically have the right to:
 
 ---
 
-<<<<<<< Updated upstream
-Lumina Studio v1.4.2 integrates three major modules into a unified interface:
-=======
 Lumina Studio v1.5.0 integrates three major modules into a unified interface:
->>>>>>> Stashed changes
 
 ### 📐 Module 1: Calibration Generator
 
@@ -145,149 +137,25 @@ Converts images into printable 3D models using calibrated data.
 
 ---
 
-<<<<<<< Updated upstream
-## What's New in v1.4.2 🚀
-
-### Bug Fixes and Improvements
-
-- Fixed some known issues
-- Improved performance and stability
-- Minor code optimizations
-
----
-
-## Previous Updates (v1.4.1)
-=======
 ## What's New in v1.5.0 🚀
+
+### GPU Acceleration Support 🎮
+
+**NVIDIA and AMD GPU users can now enjoy significant performance boosts:**
+- **K-Means Color Quantization**: Up to 10x faster processing on large images
+- **Color Matching**: Significant speedup for high-resolution image conversion
+- **Automatic Detection**: Software automatically uses GPU if available, falls back to CPU otherwise
+- **Easy Setup**: Just install PyTorch with CUDA support (see Installation section)
+
+Supported GPUs:
+- **NVIDIA**: GTX/RTX series with CUDA 11.8 or 12.1 ✅ Tested
+- **AMD**: RX 6000/7000 series with ROCm 6.2 (Linux only) ⚠️ Not tested
 
 ### Code Standardization
 
 - ✅ **English-only Comments** - All code comments translated to English for better international collaboration
 - ✅ **Documentation Standards** - Unified Google-style docstrings across codebase
 - ✅ **Code Cleanup** - Removed redundant comments, kept essential algorithm explanations
-
----
-
-## What's New in v1.4.1 🚀
->>>>>>> Stashed changes
-
-### Modeling Mode Consolidation
-
-**High-Fidelity Mode Replaces Vector & Woodblock Modes**:
-
-The three modeling modes (Vector/Woodblock/Voxel) have been streamlined into **two unified modes**:
-
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| 🎨 **High-Fidelity Mode** | Unified RLE-based mesh generation with K-Means quantization | Logos, photos, portraits, illustrations |
-| 🧱 **Pixel Art Mode** | Legacy voxel mesher with blocky aesthetic | Pixel art, 8-bit style graphics |
-
-**Why the change?**
-- Vector and Woodblock modes shared 90% of the same code
-- High-Fidelity mode combines the best of both: smooth curves + detail preservation
-- Simpler UI with fewer confusing options
-- Consistent 10 px/mm resolution for all high-quality outputs
-
-### Language Switching
-
-- **🌐 Dynamic Language Toggle**: Click the language button in the top-right corner to switch between Chinese and English
-- **Full UI Translation**: All interface elements update instantly without page reload
-- **Persistent Settings**: Language preference is maintained during the session
-
-### Other Improvements
-
-- **Code Optimization**: Improved code structure and maintainability
-- **Documentation Updates**: Enhanced inline documentation and comments
-- **Stability Improvements**: Minor bug fixes and performance tweaks
-
----
-
-### Previous Updates (v1.4)
-
-### Three Modeling Modes
-
-Lumina Studio v1.4 introduces **three distinct geometry generation engines** to cover everything from pixel art to photo-realistic details:
-
-| Mode | Use Case | Technical Features | Precision |
-|------|----------|-------------------|-----------|
-| 🎨 **Vector Mode** | Logos, illustrations, cartoons | Smooth curves, OpenCV contour extraction | 10 px/mm (0.1mm/pixel) |
-| 🖼️ **Woodblock Mode** ⭐ | Photos, portraits, complex textures | SLIC superpixels + detail preservation | 10 px/mm  |
-| 🧱 **Voxel Mode** | Pixel art, 8-bit style | Blocky geometry, nostalgic aesthetic | 2.4 px/mm (nozzle width) |
-
-### Color Quantization Engine 
-
-**"Cluster First, Match Second"**:
-
-Traditional methods match 1 million pixels to LUT individually. v1.4 instead:
-1. **K-Means Clustering**: Quantize image to K dominant colors (8-256, default 64)
-2. **Match Only K Colors**: 1000× speed improvement
-3. **Spatial Denoising**: Bilateral + median filtering eliminates fragmented regions
-
-**User-Adjustable Parameters**:
-- **Vector Color Detail** slider: 8 colors (minimalist) to 256 colors (photographic)
-
-### Other Improvements
-
-| Feature | Description |
-|---------|-------------|
-| 📏 Resolution Decoupling | Vector/Woodblock: 10 px/mm, Voxel: 2.4 px/mm |
-| 🎮 Smart 3D Preview Downsampling | Large models auto-simplify preview (3MF retains full quality) |
-| 🚫 Browser Crash Protection | Detects model complexity, disables preview for 2M+ pixels |
-
-**Previous Updates (v1.2-1.3)**:
-
-| Feature | Description |
-|---------|-------------|
-| 🔧 Fixed 3MF Naming | Slicer now shows correct color names (White, Cyan, Magenta...) |
-| 🎨 Dual Color Modes | Full support for both CMYW and RYBW color systems |
-| 🎮 Live 3D Preview | Interactive preview with actual LUT-matched colors |
-| 🌐 Bilingual UI | Chinese/English labels throughout the interface |
-| 📏 Optimized Gap | Default gap changed to 0.82mm for standard line widths |
-| 📦 Unified App | All three tools merged into single application |
-
----
-
-## Development Roadmap
-
-### Phase 1: The Foundation ✅ COMPLETE
-
-**Target**: Pixel Art & Photographic Graphics
-
-- ✅ Fixed CMYW/RYBW mixing
-- ✅ Two modeling modes (High-Fidelity/Pixel Art)
-- ✅ High-Fidelity mode with RLE mesh generation
-- ✅ Ultra-high precision (10 px/mm, 0.1mm/pixel)
-- ✅ K-Means color quantization architecture
-- ✅ Solid Backing generation
-- ✅ Closed-loop calibration system
-- ✅ Live 3D preview with true colors
-- ✅ Keychain loop generator
-- ✅ Dynamic language switching (Chinese/English)
-
-### Phase 2: Manga Mode (Monochrome) 🚧 IN PROGRESS
-
-**Target**: Manga panels, Ink drawings, High-contrast illustrations
-
-- Logic: Black & White layering using thickness-based grayscale (Lithophane logic)
-- Tech: Simulating screen tones (Ben-Day dots)
-
-### Phase 3: Dynamic Palette Engine
-
-**Target**: Adaptive color systems
-
-- Logic: Dynamic Palette Support (4/6/8 colors auto-selection)
-- Tech:
-  - Intelligent color clustering algorithms
-  - Adaptive dithering algorithms
-  - Perceptual color difference optimization
-
-### Phase 4: Extended Color Modes
-
-**Target**: Professional multi-material printing
-
-- 6-color extended mode
-- 8-color professional mode
-- Perler bead mode
 
 ---
 
@@ -300,12 +168,66 @@ git clone https://github.com/MOVIBALE/Lumina-Layers.git
 cd Lumina-Layers
 ```
 
-### Install dependencies
+### Quick Start (Recommended)
 
-**Core dependencies** (required):
+**For Windows users**, simply run:
+
 ```bash
+start.bat
+```
+
+This script will:
+- ✅ Auto-detect your GPU (NVIDIA or not)
+- ✅ Install the appropriate PyTorch version (CUDA for NVIDIA, CPU for others)
+- ✅ Install all other dependencies
+- ✅ Launch the application
+
+### Manual Installation
+
+If you prefer manual installation or are on Linux/Mac:
+
+**1. Clone and navigate:**
+```bash
+git clone https://github.com/MOVIBALE/Lumina-Layers.git
+cd Lumina-Layers
+```
+
+**2. Install dependencies:**
+
+**Option A: With NVIDIA GPU (CUDA 12.1 recommended):**
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
 ```
+
+**Option B: Without NVIDIA GPU (CPU only):**
+```bash
+pip install torch torchvision
+pip install -r requirements.txt
+```
+
+### GPU Acceleration Details
+
+**Supported Configurations:**
+
+| Platform | GPU Type | PyTorch Version |
+|----------|----------|----------------|
+| Windows | NVIDIA (RTX 20/30/40 series) | CUDA 12.1 |
+| Windows | NVIDIA (GTX 10 series) | CUDA 11.8 |
+| Windows | AMD/Intel/No GPU | CPU |
+| Linux | NVIDIA | CUDA 12.1 |
+| Linux | AMD (RX 6000/7000) | ROCm 6.2 |
+
+> ⚠️ **Note**: ROCm (AMD GPU on Linux) support is implemented but **not tested** by developers (no AMD hardware available). If you encounter issues, please report on GitHub Issues.
+
+**Verify GPU support:**
+```bash
+python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'Using CPU')"
+```
+
+When CUDA is available, the software automatically uses GPU for:
+- K-Means color quantization (up to 10x faster on large images)
+- Color matching to LUT (significant speedup for high-resolution images)
 
 ---
 
@@ -313,6 +235,30 @@ pip install -r requirements.txt
 
 ### Quick Start
 
+**Windows - With Python installed:**
+```bash
+start.bat
+```
+
+**Windows - Standalone EXE (No Python required):**
+
+We provide two pre-built EXE versions:
+
+| Version | File | Requirements |
+|---------|------|--------------|
+| **GPU** | `LuminaStudio_GPU.exe` | NVIDIA GPU + Drivers |
+| **CPU** | `LuminaStudio_CPU.exe` | Any Windows PC |
+
+**Build your own EXE:**
+```bash
+# For NVIDIA GPU users
+build_gpu.bat
+
+# For all users (no GPU required)
+build_cpu.bat
+```
+
+**Linux/Mac:**
 ```bash
 python main.py
 ```
@@ -396,8 +342,10 @@ This launches the web interface with all three modules in tabs.
 | Geometry Engine | Trimesh (Mesh generation & Export) |
 | UI Framework | Gradio 4.0+ |
 | Vision Stack | OpenCV (Perspective & Color Extraction) |
-| Color Matching | SciPy KDTree |
+| Color Matching | SciPy KDTree / PyTorch CUDA (GPU accelerated) |
+| Color Quantization | K-Means (OpenCV CPU / PyTorch CUDA GPU) |
 | 3D Preview | Gradio Model3D (GLB format) |
+| GPU Acceleration | PyTorch 2.0+ with CUDA 11.8/12.1 or ROCm 6.2 |
 
 ---
 

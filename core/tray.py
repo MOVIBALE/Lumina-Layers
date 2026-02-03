@@ -75,8 +75,23 @@ class LuminaTray:
 
     def setup_tray(self):
         """Configure tray icon and menu."""
-        # Try to load icon, fallback to red square if missing
-        icon_path = "icon.ico" if os.path.exists("icon.ico") else "gradio.png"
+        # Try to load icon from different locations
+        icon_path = None
+        possible_paths = [
+            "icon.ico",
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "icon.ico"),
+            os.path.join(os.path.dirname(sys.executable), "icon.ico"),
+            "gradio.png",
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                icon_path = path
+                break
+        
+        if icon_path is None:
+            print("⚠️ Warning: No icon file found, using default")
+            icon_path = "icon.ico"  # Will fail and use fallback
 
         try:
             image = Image.open(icon_path)
@@ -108,11 +123,7 @@ class LuminaTray:
         self.icon = pystray.Icon(
             "LuminaStudio",
             image,
-<<<<<<< Updated upstream
-            "Lumina Studio v1.4.2",
-=======
             "Lumina Studio v1.5.0",
->>>>>>> Stashed changes
             menu
         )
 
