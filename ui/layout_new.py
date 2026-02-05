@@ -581,25 +581,28 @@ def create_app():
             return _get_stats_html(lang, stats)
         
         # Wrap calibration button to update stats
-        components['btn_cal_generate_btn'].then(
-            fn=update_stats_bar,
-            inputs=[lang_state],
-            outputs=[stats_html]
-        )
+        if 'cal_event' in components:
+            components['cal_event'].then(
+                fn=update_stats_bar,
+                inputs=[lang_state],
+                outputs=[stats_html]
+            )
         
         # Wrap extraction button to update stats
-        components['btn_ext_extract_btn'].then(
-            fn=update_stats_bar,
-            inputs=[lang_state],
-            outputs=[stats_html]
-        )
+        if 'ext_event' in components:
+            components['ext_event'].then(
+                fn=update_stats_bar,
+                inputs=[lang_state],
+                outputs=[stats_html]
+            )
         
         # Wrap conversion button to update stats
-        components['btn_conv_generate_btn'].then(
-            fn=update_stats_bar,
-            inputs=[lang_state],
-            outputs=[stats_html]
-        )
+        if 'conv_event' in components:
+            components['conv_event'].then(
+                fn=update_stats_bar,
+                inputs=[lang_state],
+                outputs=[stats_html]
+            )
 
     return app
 
@@ -1280,7 +1283,7 @@ def create_converter_tab_content(lang: str) -> dict:
                 ],
                 outputs=[conv_preview]
             )
-    generate_event = components['btn_conv_generate_btn'].click(
+    conv_event = components['btn_conv_generate_btn'].click(
             fn=process_batch_generation,
             inputs=[
                 components['file_conv_batch_input'],
@@ -1308,6 +1311,7 @@ def create_converter_tab_content(lang: str) -> dict:
                 components['textbox_conv_status']
             ]
     )
+    components['conv_event'] = conv_event
     components['btn_conv_stop'].click(
         fn=None,
         inputs=None,
@@ -1386,7 +1390,7 @@ def create_calibration_tab_content(lang: str) -> dict:
             # Call traditional 4-color generator
             return generate_calibration_board(color_mode, block_size, gap, backing)
     
-    components['btn_cal_generate_btn'].click(
+    cal_event = components['btn_cal_generate_btn'].click(
             generate_board_wrapper,
             inputs=[
                 components['radio_cal_color_mode'],
@@ -1401,6 +1405,7 @@ def create_calibration_tab_content(lang: str) -> dict:
             ]
     )
     
+    components['cal_event'] = cal_event
     return components
 
 
@@ -1591,7 +1596,8 @@ def create_extractor_tab_content(lang: str) -> dict:
             components['file_ext_download_npy'], components['textbox_ext_status']
     ]
     
-    components['btn_ext_extract_btn'].click(run_extraction, extract_inputs, extract_outputs)
+    ext_event = components['btn_ext_extract_btn'].click(run_extraction, extract_inputs, extract_outputs)
+    components['ext_event'] = ext_event
     
     for s in [components['slider_ext_offset_x'], components['slider_ext_offset_y'],
                   components['slider_ext_zoom'], components['slider_ext_distortion']]:
