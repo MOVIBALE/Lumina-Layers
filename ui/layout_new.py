@@ -533,6 +533,46 @@ def create_app():
             inputs=[components['dropdown_conv_lut_dropdown']],
             outputs=[components['state_conv_lut_path'], components['md_conv_lut_status']]
         )
+        
+        # Settings button event handlers
+        def on_clear_cache(lang):
+            """Clear cache and return status updates."""
+            cache_size_before = Stats.get_cache_size()
+            success_count, failed_items = Stats.clear_cache()
+            cache_size_after = Stats.get_cache_size()
+            freed_size = cache_size_before - cache_size_after
+            
+            status_msg = I18n.get('settings_cache_cleared', lang).format(_format_bytes(freed_size))
+            new_cache_size = I18n.get('settings_cache_size', lang).format(_format_bytes(cache_size_after))
+            
+            return status_msg, new_cache_size
+        
+        def on_reset_counters(lang):
+            """Reset counters and return status updates."""
+            old_stats = Stats.get_all()
+            Stats.reset_all()
+            new_stats = Stats.get_all()
+            
+            status_msg = I18n.get('settings_counters_reset', lang).format(
+                new_stats.get('calibrations', 0),
+                new_stats.get('extractions', 0),
+                new_stats.get('conversions', 0)
+            )
+            
+            # Return status message and updated stats bar
+            return status_msg, _get_stats_html(lang, new_stats)
+        
+        components['btn_clear_cache'].click(
+            fn=on_clear_cache,
+            inputs=[lang_state],
+            outputs=[components['md_settings_status'], components['md_cache_size']]
+        )
+        
+        components['btn_reset_counters'].click(
+            fn=on_reset_counters,
+            inputs=[lang_state],
+            outputs=[components['md_settings_status'], stats_html]
+        )
 
     return app
 
@@ -663,6 +703,17 @@ def _get_all_component_updates(lang: str, components: dict) -> list:
         elif key.startswith('accordion_'):
             acc_key = key[10:]
             updates.append(gr.update(label=I18n.get(acc_key, lang)))
+        elif key == 'md_settings_title':
+            updates.append(gr.update(value=I18n.get('settings_title', lang)))
+        elif key == 'md_cache_size':
+            cache_size = Stats.get_cache_size()
+            updates.append(gr.update(value=I18n.get('settings_cache_size', lang).format(_format_bytes(cache_size))))
+        elif key == 'btn_clear_cache':
+            updates.append(gr.update(value=I18n.get('settings_clear_cache', lang)))
+        elif key == 'btn_reset_counters':
+            updates.append(gr.update(value=I18n.get('settings_reset_counters', lang)))
+        elif key == 'md_settings_status':
+            updates.append(gr.update())  # Keep current status message
         else:
             updates.append(gr.update())
     
@@ -1202,8 +1253,17 @@ def create_converter_tab_content(lang: str) -> dict:
                 ],
                 outputs=[conv_preview]
             )
+    def process_batch_with_stats(*args):
+        """Process batch and return updated stats."""
+        result = process_batch_generation(*args)
+        # Get updated stats
+        stats = Stats.get_all()
+        lang = "zh"  # Default language
+        stats_html = _get_stats_html(lang, stats)
+        return result + (stats_html,)
+    
     generate_event = components['btn_conv_generate_btn'].click(
-            fn=process_batch_generation,
+            fn=process_batch_with_stats,
             inputs=[
                 components['file_conv_batch_input'],
                 components['checkbox_conv_batch_mode'],
@@ -1227,7 +1287,8 @@ def create_converter_tab_content(lang: str) -> dict:
                 components['file_conv_download_file'],
                 conv_3d_preview,
                 conv_preview,
-                components['textbox_conv_status']
+                components['textbox_conv_status'],
+                stats_html
             ]
     )
     components['btn_conv_stop'].click(
@@ -1308,18 +1369,28 @@ def create_calibration_tab_content(lang: str) -> dict:
             # Call traditional 4-color generator
             return generate_calibration_board(color_mode, block_size, gap, backing)
     
+    def generate_board_with_stats(color_mode, block_size, gap, backing, lang):
+        """Generate board and return updated stats."""
+        result = generate_board_wrapper(color_mode, block_size, gap, backing)
+        # Get updated stats
+        stats = Stats.get_all()
+        stats_html = _get_stats_html(lang, stats)
+        return result + (stats_html,)
+    
     components['btn_cal_generate_btn'].click(
-            generate_board_wrapper,
+            generate_board_with_stats,
             inputs=[
                 components['radio_cal_color_mode'],
                 components['slider_cal_block_size'],
                 components['slider_cal_gap'],
-                components['dropdown_cal_backing']
+                components['dropdown_cal_backing'],
+                gr.State(lang)
             ],
             outputs=[
                 components['file_cal_download'],
                 cal_preview,
-                components['textbox_cal_status']
+                components['textbox_cal_status'],
+                stats_html
             ]
     )
     
@@ -1513,7 +1584,22 @@ def create_extractor_tab_content(lang: str) -> dict:
             components['file_ext_download_npy'], components['textbox_ext_status']
     ]
     
-    components['btn_ext_extract_btn'].click(run_extraction, extract_inputs, extract_outputs)
+    def run_extraction_with_stats(*args):
+        """Run extraction and return updated stats."""
+        from core.i18n import I18n
+        result = run_extraction(*args)
+        # Get updated stats
+        stats = Stats.get_all()
+        # Get current language from args or default to zh
+        lang = "zh"
+        stats_html = _get_stats_html(lang, stats)
+        return result + (stats_html,)
+    
+    components['btn_ext_extract_btn'].click(
+        run_extraction_with_stats,
+        extract_inputs,
+        extract_outputs + [stats_html]
+    )
     
     for s in [components['slider_ext_offset_x'], components['slider_ext_offset_y'],
                   components['slider_ext_zoom'], components['slider_ext_distortion']]:
@@ -1534,7 +1620,44 @@ def create_about_tab_content(lang: str) -> dict:
     """Build About tab content from i18n. Returns component dict."""
     components = {}
     
+    # Settings section
+    components['md_settings_title'] = gr.Markdown(I18n.get('settings_title', lang))
+    
+    # Cache size display
+    cache_size = Stats.get_cache_size()
+    cache_size_str = _format_bytes(cache_size)
+    components['md_cache_size'] = gr.Markdown(
+        I18n.get('settings_cache_size', lang).format(cache_size_str)
+    )
+    
+    # Settings buttons row
+    with gr.Row():
+        components['btn_clear_cache'] = gr.Button(
+            I18n.get('settings_clear_cache', lang),
+            variant="secondary",
+            size="sm"
+        )
+        components['btn_reset_counters'] = gr.Button(
+            I18n.get('settings_reset_counters', lang),
+            variant="secondary",
+            size="sm"
+        )
+    
+    # Settings status message
+    components['md_settings_status'] = gr.Markdown("")
+    
     # About page content (from i18n)
     components['md_about_content'] = gr.Markdown(I18n.get('about_content', lang))
     
     return components
+
+
+def _format_bytes(size_bytes: int) -> str:
+    """Format bytes to human readable string."""
+    if size_bytes == 0:
+        return "0 B"
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f} TB"

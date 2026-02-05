@@ -489,6 +489,32 @@ class I18n:
             'en': 'ℹ️ 3D preview simplified'
         },
         
+        # ==================== Settings ====================
+        'settings_title': {
+            'zh': '## ⚙️ 设置',
+            'en': '## ⚙️ Settings'
+        },
+        'settings_clear_cache': {
+            'zh': '🗑️ 清空缓存',
+            'en': '🗑️ Clear Cache'
+        },
+        'settings_reset_counters': {
+            'zh': '🔢 使用计数归零',
+            'en': '🔢 Reset Counters'
+        },
+        'settings_cache_cleared': {
+            'zh': '✅ 缓存已清空，释放了 {} 空间',
+            'en': '✅ Cache cleared, freed {} of space'
+        },
+        'settings_counters_reset': {
+            'zh': '✅ 计数器已归零：校准板: {} | 颜色提取: {} | 模型转换: {}',
+            'en': '✅ Counters reset: Calibrations: {} | Extractions: {} | Conversions: {}'
+        },
+        'settings_cache_size': {
+            'zh': '📦 缓存大小: {}',
+            'en': '📦 Cache size: {}'
+        },
+        
         # ==================== About Page Content ====================
         'about_content': {
             'zh': """## 🌟 Lumina Studio v1.5.3
