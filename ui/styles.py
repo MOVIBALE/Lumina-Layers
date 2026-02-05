@@ -221,4 +221,85 @@ CUSTOM_CSS = """
     padding: 2px 6px !important;
     height: auto !important;
 }
+
+/* Hidden Number Components - for crop data */
+.hidden-number,
+.hidden-number *,
+#crop-data-x,
+#crop-data-y,
+#crop-data-w,
+#crop-data-h {
+    display: none !important;
+    visibility: hidden !important;
+    position: absolute !important;
+    left: -9999px !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Hidden Button Components - for JavaScript triggers */
+.hidden-button,
+.hidden-button *,
+#use-original-hidden-btn,
+#confirm-crop-hidden-btn {
+    display: none !important;
+    visibility: hidden !important;
+    position: absolute !important;
+    left: -9999px !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+}
+
+/* Hidden crop components - must be in DOM but invisible */
+.hidden-crop-component,
+.hidden-crop-component *,
+div.hidden-crop-component,
+div[class*="hidden-crop-component"] {
+    position: absolute !important;
+    left: -9999px !important;
+    top: -9999px !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    pointer-events: auto !important;
+    visibility: hidden !important;
+}
+
+/* Crop modal host: keep in DOM without occupying layout, allow overlay to show */
+.crop-modal-container {
+    position: absolute !important;
+    left: -9999px !important;
+    top: -9999px !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: visible !important;
+    pointer-events: auto !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+#crop-data-json,
+#crop-data-json *,
+div#crop-data-json,
+#use-original-hidden-btn,
+#use-original-hidden-btn *,
+div#use-original-hidden-btn,
+#confirm-crop-hidden-btn,
+#confirm-crop-hidden-btn *,
+div#confirm-crop-hidden-btn {
+    position: absolute !important;
+    left: -9999px !important;
+    top: -9999px !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
 """

@@ -596,17 +596,17 @@ def _get_all_component_updates(lang: str, components: dict) -> list:
                 updates.append(gr.update(
                     label=I18n.get(choice_key, lang),
                     choices=[
-                        I18n.get('conv_color_mode_cmyw', lang),
-                        I18n.get('conv_color_mode_rybw', lang),
-                        "6-Color (Smart 1296)"
+                        (I18n.get('conv_color_mode_cmyw', lang), I18n.get('conv_color_mode_cmyw', 'en')),
+                        (I18n.get('conv_color_mode_rybw', lang), I18n.get('conv_color_mode_rybw', 'en')),
+                        ("6-Color (Smart 1296)", "6-Color (Smart 1296)")
                     ]
                 ))
             elif choice_key == 'conv_structure':
                 updates.append(gr.update(
                     label=I18n.get(choice_key, lang),
                     choices=[
-                        I18n.get('conv_structure_double', lang),
-                        I18n.get('conv_structure_single', lang)
+                        (I18n.get('conv_structure_double', lang), I18n.get('conv_structure_double', 'en')),
+                        (I18n.get('conv_structure_single', lang), I18n.get('conv_structure_single', 'en'))
                     ]
                 ))
             elif choice_key == 'conv_modeling_mode':
@@ -614,9 +614,9 @@ def _get_all_component_updates(lang: str, components: dict) -> list:
                     label=I18n.get(choice_key, lang),
                     info=I18n.get('conv_modeling_mode_info', lang),
                     choices=[
-                        I18n.get('conv_modeling_mode_hifi', lang),
-                        I18n.get('conv_modeling_mode_pixel', lang),
-                        I18n.get('conv_modeling_mode_vector', lang)
+                        (I18n.get('conv_modeling_mode_hifi', lang), I18n.get('conv_modeling_mode_hifi', 'en')),
+                        (I18n.get('conv_modeling_mode_pixel', lang), I18n.get('conv_modeling_mode_pixel', 'en')),
+                        (I18n.get('conv_modeling_mode_vector', lang), I18n.get('conv_modeling_mode_vector', 'en'))
                     ]
                 ))
         elif key.startswith('slider_'):
@@ -654,6 +654,9 @@ def _get_all_component_updates(lang: str, components: dict) -> list:
         elif key.startswith('num_'):
             num_key = key[4:]
             updates.append(gr.update(label=I18n.get(num_key, lang)))
+        elif key == 'html_crop_modal':
+            from ui.crop_extension import get_crop_modal_html
+            updates.append(gr.update(value=get_crop_modal_html(lang)))
         elif key.startswith('html_'):
             html_key = key[5:]
             updates.append(gr.update(value=I18n.get(html_key, lang)))
@@ -788,12 +791,51 @@ def create_converter_tab_content(lang: str) -> dict:
                     value=False,
                     info=I18n.get('conv_batch_mode_info', lang)
                 )
+            
+            # ========== Image Crop Extension (Non-invasive) ==========
+            # Hidden state for preprocessing
+            preprocess_img_width = gr.State(0)
+            preprocess_img_height = gr.State(0)
+            preprocess_processed_path = gr.State(None)
+            
+            # Crop data states (used by JavaScript via hidden inputs)
+            crop_data_state = gr.State({"x": 0, "y": 0, "w": 100, "h": 100})
+            
+            # Hidden textbox for JavaScript to pass crop data to Python (use CSS to hide)
+            crop_data_json = gr.Textbox(
+                value='{"x":0,"y":0,"w":100,"h":100}',
+                elem_id="crop-data-json",
+                visible=True,
+                elem_classes=["hidden-crop-component"]
+            )
+            
+            # Hidden buttons for JavaScript to trigger Python callbacks (use CSS to hide)
+            use_original_btn = gr.Button("use_original", elem_id="use-original-hidden-btn", elem_classes=["hidden-crop-component"])
+            confirm_crop_btn = gr.Button("confirm_crop", elem_id="confirm-crop-hidden-btn", elem_classes=["hidden-crop-component"])
+            
+            # Cropper.js Modal HTML (JS is loaded via head parameter in main.py)
+            from ui.crop_extension import get_crop_modal_html
+            cropper_modal_html = gr.HTML(
+                get_crop_modal_html(lang),
+                elem_classes=["crop-modal-container"]
+            )
+            components['html_crop_modal'] = cropper_modal_html
+            
+            # Hidden HTML element to store dimensions for JavaScript
+            preprocess_dimensions_html = gr.HTML(
+                value='<div id="preprocess-dimensions-data" data-width="0" data-height="0" style="display:none;"></div>',
+                visible=True,
+                elem_classes=["hidden-crop-component"]
+            )
+            # ========== END Image Crop Extension ==========
+            
             components['image_conv_image_label'] = gr.Image(
                 label=I18n.get('conv_image_label', lang),
                 type="filepath",
-                image_mode="RGBA",
+                image_mode=None,  # Auto-detect mode to support both JPEG and PNG
                 height=240,
-                visible=True
+                visible=True,
+                elem_id="conv-image-input"
             )
             components['file_conv_batch_input'] = gr.File(
                 label=I18n.get('conv_batch_input', lang),
@@ -823,31 +865,31 @@ def create_converter_tab_content(lang: str) -> dict:
             with gr.Row(elem_classes=["compact-row"]):
                 components['radio_conv_color_mode'] = gr.Radio(
                     choices=[
-                        I18n.get('conv_color_mode_cmyw', lang),
-                        I18n.get('conv_color_mode_rybw', lang),
-                        "6-Color (Smart 1296)"
+                        (I18n.get('conv_color_mode_cmyw', lang), I18n.get('conv_color_mode_cmyw', 'en')),
+                        (I18n.get('conv_color_mode_rybw', lang), I18n.get('conv_color_mode_rybw', 'en')),
+                        ("6-Color (Smart 1296)", "6-Color (Smart 1296)")
                     ],
-                    value=I18n.get('conv_color_mode_rybw', lang),
+                    value=I18n.get('conv_color_mode_rybw', 'en'),
                     label=I18n.get('conv_color_mode', lang)
                 )
                 
                 components['radio_conv_structure'] = gr.Radio(
                     choices=[
-                        I18n.get('conv_structure_double', lang),
-                        I18n.get('conv_structure_single', lang)
+                        (I18n.get('conv_structure_double', lang), I18n.get('conv_structure_double', 'en')),
+                        (I18n.get('conv_structure_single', lang), I18n.get('conv_structure_single', 'en'))
                     ],
-                    value=I18n.get('conv_structure_double', lang),
+                    value=I18n.get('conv_structure_double', 'en'),
                     label=I18n.get('conv_structure', lang)
                 )
 
             with gr.Row(elem_classes=["compact-row"]):
                 components['radio_conv_modeling_mode'] = gr.Radio(
                     choices=[
-                        I18n.get('conv_modeling_mode_hifi', lang),
-                        I18n.get('conv_modeling_mode_pixel', lang),
-                        I18n.get('conv_modeling_mode_vector', lang)
+                        (I18n.get('conv_modeling_mode_hifi', lang), I18n.get('conv_modeling_mode_hifi', 'en')),
+                        (I18n.get('conv_modeling_mode_pixel', lang), I18n.get('conv_modeling_mode_pixel', 'en')),
+                        (I18n.get('conv_modeling_mode_vector', lang), I18n.get('conv_modeling_mode_vector', 'en'))
                     ],
-                    value=I18n.get('conv_modeling_mode_hifi', lang),
+                    value=I18n.get('conv_modeling_mode_hifi', 'en'),
                     label=I18n.get('conv_modeling_mode', lang),
                     info=I18n.get('conv_modeling_mode_info', lang),
                     elem_classes=["vertical-radio"],
@@ -982,6 +1024,97 @@ def create_converter_tab_content(lang: str) -> dict:
         inputs=[components['checkbox_conv_batch_mode']],
         outputs=[components['image_conv_image_label'], components['file_conv_batch_input']]
     )
+
+    # ========== Image Crop Extension Events (Non-invasive) ==========
+    from core.image_preprocessor import ImagePreprocessor
+    
+    def on_image_upload_process_with_html(image_path):
+        """When image is uploaded, process and prepare for crop modal"""
+        if image_path is None:
+            return (
+                0, 0, None,
+                '<div id="preprocess-dimensions-data" data-width="0" data-height="0" style="display:none;"></div>'
+            )
+        
+        try:
+            info = ImagePreprocessor.process_upload(image_path)
+            dimensions_html = f'<div id="preprocess-dimensions-data" data-width="{info.width}" data-height="{info.height}" style="display:none;"></div>'
+            return (info.width, info.height, info.processed_path, dimensions_html)
+        except Exception as e:
+            print(f"Image upload error: {e}")
+            return (0, 0, None, '<div id="preprocess-dimensions-data" data-width="0" data-height="0" style="display:none;"></div>')
+    
+    # JavaScript to open crop modal
+    open_crop_modal_js = """
+    () => {
+        setTimeout(() => {
+            const dimElement = document.querySelector('#preprocess-dimensions-data');
+            if (dimElement) {
+                const width = parseInt(dimElement.dataset.width) || 0;
+                const height = parseInt(dimElement.dataset.height) || 0;
+                if (width > 0 && height > 0) {
+                    const imgContainer = document.querySelector('#conv-image-input');
+                    if (imgContainer) {
+                        const img = imgContainer.querySelector('img');
+                        if (img && img.src && typeof window.openCropModal === 'function') {
+                            window.openCropModal(img.src, width, height);
+                        }
+                    }
+                }
+            }
+        }, 300);
+    }
+    """
+    
+    components['image_conv_image_label'].upload(
+        on_image_upload_process_with_html,
+        inputs=[components['image_conv_image_label']],
+        outputs=[preprocess_img_width, preprocess_img_height, preprocess_processed_path, preprocess_dimensions_html]
+    ).then(
+        fn=None,
+        inputs=None,
+        outputs=None,
+        js=open_crop_modal_js
+    )
+    
+    def use_original_image(processed_path, w, h):
+        """Use original image without cropping"""
+        if processed_path is None:
+            return None
+        try:
+            return ImagePreprocessor.convert_to_png(processed_path)
+        except Exception as e:
+            print(f"Use original error: {e}")
+            return None
+    
+    use_original_btn.click(
+        use_original_image,
+        inputs=[preprocess_processed_path, preprocess_img_width, preprocess_img_height],
+        outputs=[components['image_conv_image_label']]
+    )
+    
+    def confirm_crop_image(processed_path, crop_json):
+        """Crop image with specified region from JSON data"""
+        if processed_path is None:
+            return None
+        try:
+            import json
+            data = json.loads(crop_json) if crop_json else {"x": 0, "y": 0, "w": 100, "h": 100}
+            x = int(data.get("x", 0))
+            y = int(data.get("y", 0))
+            w = int(data.get("w", 100))
+            h = int(data.get("h", 100))
+            return ImagePreprocessor.crop_image(processed_path, x, y, w, h)
+        except Exception as e:
+            print(f"Crop error: {e}")
+            return None
+    
+    confirm_crop_btn.click(
+        confirm_crop_image,
+        inputs=[preprocess_processed_path, crop_data_json],
+        outputs=[components['image_conv_image_label']]
+    )
+    # ========== END Image Crop Extension Events ==========
 
     components['dropdown_conv_lut_dropdown'].change(
             on_lut_select,
@@ -1118,11 +1251,11 @@ def create_calibration_tab_content(lang: str) -> dict:
                 
             components['radio_cal_color_mode'] = gr.Radio(
                 choices=[
-                    I18n.get('conv_color_mode_cmyw', lang),
-                    I18n.get('conv_color_mode_rybw', lang),
-                    "6-Color (Smart 1296)"  # New 6-color option
+                    (I18n.get('conv_color_mode_cmyw', lang), I18n.get('conv_color_mode_cmyw', 'en')),
+                    (I18n.get('conv_color_mode_rybw', lang), I18n.get('conv_color_mode_rybw', 'en')),
+                    ("6-Color (Smart 1296)", "6-Color (Smart 1296)")
                 ],
-                value=I18n.get('conv_color_mode_rybw', lang),
+                value=I18n.get('conv_color_mode_rybw', 'en'),
                 label=I18n.get('cal_color_mode', lang)
             )
                 
@@ -1199,7 +1332,7 @@ def create_extractor_tab_content(lang: str) -> dict:
     ext_state_img = gr.State(None)
     ext_state_pts = gr.State([])
     ext_curr_coord = gr.State(None)
-    default_mode = I18n.get('conv_color_mode_rybw', lang)
+    default_mode = I18n.get('conv_color_mode_rybw', 'en')
     ref_img = get_extractor_reference_image(default_mode)
 
     with gr.Row():
@@ -1210,11 +1343,11 @@ def create_extractor_tab_content(lang: str) -> dict:
                 
             components['radio_ext_color_mode'] = gr.Radio(
                 choices=[
-                    I18n.get('conv_color_mode_cmyw', lang),
-                    I18n.get('conv_color_mode_rybw', lang),
-                    "6-Color (Smart 1296)"  # New 6-color option
+                    (I18n.get('conv_color_mode_cmyw', lang), I18n.get('conv_color_mode_cmyw', 'en')),
+                    (I18n.get('conv_color_mode_rybw', lang), I18n.get('conv_color_mode_rybw', 'en')),
+                    ("6-Color (Smart 1296)", "6-Color (Smart 1296)")
                 ],
-                value=I18n.get('conv_color_mode_rybw', lang),
+                value=I18n.get('conv_color_mode_rybw', 'en'),
                 label=I18n.get('ext_color_mode', lang)
             )
                 

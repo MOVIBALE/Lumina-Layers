@@ -18,8 +18,8 @@ class I18n:
             'en': '✨ Lumina Studio'
         },
         'app_subtitle': {
-            'zh': '多材料3D打印色彩系统 | v1.5.2',
-            'en': 'Multi-Material 3D Print Color System | v1.5.2'
+            'zh': '多材料3D打印色彩系统 | v1.5.3',
+            'en': 'Multi-Material 3D Print Color System | v1.5.3'
         },
         'lang_btn_zh': {
             'zh': '🌐 中文',
@@ -110,6 +110,43 @@ class I18n:
         'conv_image_label': {
             'zh': '输入图像',
             'en': 'Input Image'
+        },
+
+        'crop_title': {
+            'zh': '图片裁剪',
+            'en': 'Image Crop'
+        },
+        'crop_original_size': {
+            'zh': '原图尺寸',
+            'en': 'Original size'
+        },
+        'crop_selection_size': {
+            'zh': '选区尺寸',
+            'en': 'Selection size'
+        },
+        'crop_x': {
+            'zh': 'X 偏移',
+            'en': 'X Offset'
+        },
+        'crop_y': {
+            'zh': 'Y 偏移',
+            'en': 'Y Offset'
+        },
+        'crop_width': {
+            'zh': '宽度',
+            'en': 'Width'
+        },
+        'crop_height': {
+            'zh': '高度',
+            'en': 'Height'
+        },
+        'crop_use_original': {
+            'zh': '使用原图',
+            'en': 'Use original'
+        },
+        'crop_confirm': {
+            'zh': '确认裁剪',
+            'en': 'Confirm crop'
         },
         'conv_params_section': {
             'zh': '#### ⚙️ 参数',
@@ -454,7 +491,7 @@ class I18n:
         
         # ==================== About Page Content ====================
         'about_content': {
-            'zh': """## 🌟 Lumina Studio v1.5.2
+            'zh': """## 🌟 Lumina Studio v1.5.3
 
 **多材料3D打印色彩系统**
 
@@ -488,10 +525,10 @@ class I18n:
 
 ---
 
-### 📝 v1.5.2 更新日志
+### 📝 v1.5.3 更新日志
 
 #### 🔄 版本更新
-- 更新版本号至 v1.5.2
+- 更新版本号至 v1.5.3
 
 ---
 
@@ -563,10 +600,10 @@ class I18n:
 
 <div style="text-align:center; color:#888; margin-top:20px;">
     Made with ❤️ by [MIN]<br>
-    v1.5.2 | 2025
+    v1.5.3 | 2025
 </div>
 """,
-            'en': """## 🌟 Lumina Studio v1.5.2
+            'en': """## 🌟 Lumina Studio v1.5.3
 
 **Multi-Material 3D Print Color System**
 
@@ -600,10 +637,10 @@ Accurate color reproduction for FDM printing
 
 ---
 
-### 📝 v1.5.2 Changelog
+### 📝 v1.5.3 Changelog
 
 #### 🔄 Version Update
-- Updated version number to v1.5.2
+- Updated version number to v1.5.3
 
 ---
 
@@ -675,7 +712,7 @@ Special thanks to:
 
 <div style="text-align:center; color:#888; margin-top:20px;">
     Made with ❤️ by [MIN]<br>
-    v1.5.2 | 2025
+    v1.5.3 | 2025
 </div>
 """
         },

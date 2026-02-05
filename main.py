@@ -1,6 +1,6 @@
 """
 ╔═══════════════════════════════════════════════════════════════════════════════╗
-║                          LUMINA STUDIO v1.5.2                                 ║
+║                          LUMINA STUDIO v1.5.3                                 ║
 ║                    Multi-Material 3D Print Color System                       ║
 ╠═══════════════════════════════════════════════════════════════════════════════╣
 ║  Author: [MIN]                                                                ║
@@ -87,6 +87,8 @@ if __name__ == "__main__":
 
     try:
         from ui.layout_new import HEADER_CSS
+        # Import crop extension for head JS injection
+        from ui.crop_extension import get_crop_head_js
         app.launch(
             inbrowser=False,
             server_name="0.0.0.0",
@@ -95,7 +97,8 @@ if __name__ == "__main__":
             prevent_thread_lock=True,
             favicon_path="icon.ico" if os.path.exists("icon.ico") else None,
             css=CUSTOM_CSS + HEADER_CSS,
-            theme=gr.themes.Soft()
+            theme=gr.themes.Soft(),
+            head=get_crop_head_js()
         )
     except Exception as e:
         raise

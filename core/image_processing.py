@@ -432,9 +432,13 @@ class LuminaImageProcessor:
         Returns:
             tuple: (matched_rgb, material_matrix, quantized_image, debug_data)
         """
+        import time
+        total_start = time.time()
+        
         print(f"[IMAGE_PROCESSOR] Starting edge-preserving processing...")
         
         # Step 1: Bilateral filter (edge-preserving smoothing)
+        t0 = time.time()
         if smooth_sigma > 0:
             print(f"[IMAGE_PROCESSOR] Applying bilateral filter (sigma={smooth_sigma})...")
             rgb_processed = cv2.bilateralFilter(
@@ -446,14 +450,17 @@ class LuminaImageProcessor:
         else:
             print(f"[IMAGE_PROCESSOR] Bilateral filter disabled (sigma=0)")
             rgb_processed = rgb_arr.astype(np.uint8)
+        print(f"[IMAGE_PROCESSOR] ⏱️ Bilateral filter: {time.time() - t0:.2f}s")
         
         # Step 2: Optional median filter (remove salt-and-pepper noise)
+        t0 = time.time()
         if blur_kernel > 0:
             kernel_size = blur_kernel if blur_kernel % 2 == 1 else blur_kernel + 1
             print(f"[IMAGE_PROCESSOR] Applying median blur (kernel={kernel_size})...")
             rgb_processed = cv2.medianBlur(rgb_processed, kernel_size)
         else:
             print(f"[IMAGE_PROCESSOR] Median blur disabled (kernel=0)")
+        print(f"[IMAGE_PROCESSOR] ⏱️ Median blur: {time.time() - t0:.2f}s")
         
         # Step 3: Skip sharpening to prevent noise amplification
         # Sharpening creates high-contrast noise in flat color areas
@@ -468,6 +475,7 @@ class LuminaImageProcessor:
         # 如果像素数超过 50 万，先缩小做 K-Means，再映射回原图
         KMEANS_PIXEL_THRESHOLD = 500_000
         
+        t0 = time.time()
         if total_pixels > KMEANS_PIXEL_THRESHOLD:
             # 计算缩放比例，目标 50 万像素
             scale_factor = np.sqrt(total_pixels / KMEANS_PIXEL_THRESHOLD)
@@ -484,12 +492,15 @@ class LuminaImageProcessor:
             criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 50, 0.5)
             flags = cv2.KMEANS_PP_CENTERS  # K-Means++ 初始化
             
+            t_kmeans = time.time()
             print(f"[IMAGE_PROCESSOR] K-Means++ on downscaled image ({quantize_colors} colors)...")
             _, _, centers = cv2.kmeans(
                 pixels_small, quantize_colors, None, criteria, 5, flags
             )
+            print(f"[IMAGE_PROCESSOR] ⏱️ K-Means: {time.time() - t_kmeans:.2f}s")
             
             # 用得到的 centers 直接映射原图（不再迭代，只做最近邻查找）
+            t_map = time.time()
             print(f"[IMAGE_PROCESSOR] Mapping centers to full image...")
             centers = centers.astype(np.float32)
             pixels_full = rgb_sharpened.reshape(-1, 3).astype(np.float32)
@@ -499,6 +510,7 @@ class LuminaImageProcessor:
             from scipy.spatial import KDTree
             centers_tree = KDTree(centers)
             _, labels = centers_tree.query(pixels_full)
+            print(f"[IMAGE_PROCESSOR] ⏱️ KDTree query: {time.time() - t_map:.2f}s")
             
             centers = centers.astype(np.uint8)
             quantized_pixels = centers[labels]
@@ -519,49 +531,65 @@ class LuminaImageProcessor:
             centers = centers.astype(np.uint8)
             quantized_pixels = centers[labels.flatten()]
             quantized_image = quantized_pixels.reshape(h, w, 3)
+        print(f"[IMAGE_PROCESSOR] ⏱️ Total quantization: {time.time() - t0:.2f}s")
         
         # [CRITICAL FIX] Post-Quantization Cleanup
         # Removes isolated "salt-and-pepper" noise pixels that survive quantization
+        t0 = time.time()
         print(f"[IMAGE_PROCESSOR] Applying post-quantization cleanup (Denoising)...")
         quantized_image = cv2.medianBlur(quantized_image, 3)  # Kernel size 3 is optimal for detail preservation
+        print(f"[IMAGE_PROCESSOR] ⏱️ Post-quantization cleanup: {time.time() - t0:.2f}s")
         
         print(f"[IMAGE_PROCESSOR] Quantization complete!")
         
         # Find unique colors
+        t0 = time.time()
         unique_colors = np.unique(quantized_image.reshape(-1, 3), axis=0)
         print(f"[IMAGE_PROCESSOR] Found {len(unique_colors)} unique colors")
+        print(f"[IMAGE_PROCESSOR] ⏱️ Find unique colors: {time.time() - t0:.2f}s")
         
         # Match to LUT
+        t0 = time.time()
         print(f"[IMAGE_PROCESSOR] Matching colors to LUT...")
         _, unique_indices = self.kdtree.query(unique_colors.astype(float))
+        print(f"[IMAGE_PROCESSOR] ⏱️ LUT matching: {time.time() - t0:.2f}s")
         
-        # Build color mapping
-        color_to_stack = {}
-        color_to_rgb = {}
-        for i, color in enumerate(unique_colors):
-            color_key = tuple(color)
-            color_to_stack[color_key] = self.ref_stacks[unique_indices[i]]
-            color_to_rgb[color_key] = self.lut_rgb[unique_indices[i]]
+        # 🚀 优化：构建颜色编码查找表
+        # 把 RGB 编码成单个整数：R*65536 + G*256 + B
+        # 这样可以用 NumPy 向量化操作一次性完成映射
+        t0 = time.time()
+        print(f"[IMAGE_PROCESSOR] Building color lookup table...")
         
-        # Map back to full image (vectorized for speed)
-        print(f"[IMAGE_PROCESSOR] Mapping to full image...")
-        matched_rgb = np.zeros((target_h, target_w, 3), dtype=np.uint8)
-        material_matrix = np.zeros((target_h, target_w, PrinterConfig.COLOR_LAYERS), dtype=int)
+        # 为每个 unique_color 计算编码
+        unique_codes = (unique_colors[:, 0].astype(np.int32) * 65536 + 
+                        unique_colors[:, 1].astype(np.int32) * 256 + 
+                        unique_colors[:, 2].astype(np.int32))
         
-        # 向量化映射，避免双重循环
+        # 构建编码 → 索引的映射数组（用于 np.searchsorted）
+        sort_idx = np.argsort(unique_codes)
+        sorted_codes = unique_codes[sort_idx]
+        sorted_lut_indices = unique_indices[sort_idx]
+        
+        # 计算所有像素的颜色编码
+        print(f"[IMAGE_PROCESSOR] Mapping to full image (optimized)...")
         flat_quantized = quantized_image.reshape(-1, 3)
-        flat_matched = np.zeros((target_h * target_w, 3), dtype=np.uint8)
-        flat_material = np.zeros((target_h * target_w, PrinterConfig.COLOR_LAYERS), dtype=int)
+        pixel_codes = (flat_quantized[:, 0].astype(np.int32) * 65536 + 
+                       flat_quantized[:, 1].astype(np.int32) * 256 + 
+                       flat_quantized[:, 2].astype(np.int32))
         
-        for color_key, stack in color_to_stack.items():
-            mask = np.all(flat_quantized == np.array(color_key), axis=1)
-            flat_matched[mask] = color_to_rgb[color_key]
-            flat_material[mask] = stack
+        # 使用 searchsorted 找到每个像素对应的 unique_color 索引
+        insert_positions = np.searchsorted(sorted_codes, pixel_codes)
+        # 获取对应的 LUT 索引
+        lut_indices_for_pixels = sorted_lut_indices[insert_positions]
         
-        matched_rgb = flat_matched.reshape(target_h, target_w, 3)
-        material_matrix = flat_material.reshape(target_h, target_w, PrinterConfig.COLOR_LAYERS)
+        # 一次性映射所有像素
+        matched_rgb = self.lut_rgb[lut_indices_for_pixels].reshape(target_h, target_w, 3)
+        material_matrix = self.ref_stacks[lut_indices_for_pixels].reshape(
+            target_h, target_w, PrinterConfig.COLOR_LAYERS
+        )
+        print(f"[IMAGE_PROCESSOR] ⏱️ Color mapping (optimized): {time.time() - t0:.2f}s")
         
-        print(f"[IMAGE_PROCESSOR] Color matching complete!")
+        print(f"[IMAGE_PROCESSOR] ✅ Total processing time: {time.time() - total_start:.2f}s")
         
         # Prepare debug data
         debug_data = {

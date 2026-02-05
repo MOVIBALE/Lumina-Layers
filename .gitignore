@@ -211,6 +211,7 @@ output/*.3mf
 output/*.glb
 output/*.npy
 output/lumina_stats.txt
+output/*
 
 # Gradio cache directory
 output/.gradio_cache/
@@ -235,3 +236,7 @@ assets/ref_*.png
 
 # 指标统计文件
 lumina_stats.txt
++lut-npy163623644576/Custom/*.npy
+.venv312/
+.venv*/
+lut-npyԤ��/Custom/*.npy
