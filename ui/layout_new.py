@@ -751,8 +751,17 @@ def _get_all_component_updates(lang: str, components: dict) -> list:
 
 
 def _get_component_list(components: dict) -> list:
-    """Return component values in dict order (for Gradio outputs)."""
-    return list(components.values())
+    """Return component values in dict order (for Gradio outputs).
+    
+    Filters out event objects (Dependency) which are not valid outputs.
+    """
+    from gradio.blocks import Block
+    result = []
+    for v in components.values():
+        # Only include Block objects (Gradio components), not Dependency objects
+        if isinstance(v, Block):
+            result.append(v)
+    return result
 
 
 def get_extractor_reference_image(mode_str):
