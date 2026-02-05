@@ -573,6 +573,33 @@ def create_app():
             inputs=[lang_state],
             outputs=[components['md_settings_status'], stats_html]
         )
+        
+        # Add stat update handlers for calibration, extraction, and conversion
+        def update_stats_bar(lang):
+            """Update stats bar with current stats."""
+            stats = Stats.get_all()
+            return _get_stats_html(lang, stats)
+        
+        # Wrap calibration button to update stats
+        components['btn_cal_generate_btn'].then(
+            fn=update_stats_bar,
+            inputs=[lang_state],
+            outputs=[stats_html]
+        )
+        
+        # Wrap extraction button to update stats
+        components['btn_ext_extract_btn'].then(
+            fn=update_stats_bar,
+            inputs=[lang_state],
+            outputs=[stats_html]
+        )
+        
+        # Wrap conversion button to update stats
+        components['btn_conv_generate_btn'].then(
+            fn=update_stats_bar,
+            inputs=[lang_state],
+            outputs=[stats_html]
+        )
 
     return app
 
@@ -1253,17 +1280,8 @@ def create_converter_tab_content(lang: str) -> dict:
                 ],
                 outputs=[conv_preview]
             )
-    def process_batch_with_stats(*args):
-        """Process batch and return updated stats."""
-        result = process_batch_generation(*args)
-        # Get updated stats
-        stats = Stats.get_all()
-        lang = "zh"  # Default language
-        stats_html = _get_stats_html(lang, stats)
-        return result + (stats_html,)
-    
     generate_event = components['btn_conv_generate_btn'].click(
-            fn=process_batch_with_stats,
+            fn=process_batch_generation,
             inputs=[
                 components['file_conv_batch_input'],
                 components['checkbox_conv_batch_mode'],
@@ -1287,8 +1305,7 @@ def create_converter_tab_content(lang: str) -> dict:
                 components['file_conv_download_file'],
                 conv_3d_preview,
                 conv_preview,
-                components['textbox_conv_status'],
-                stats_html
+                components['textbox_conv_status']
             ]
     )
     components['btn_conv_stop'].click(
@@ -1369,28 +1386,18 @@ def create_calibration_tab_content(lang: str) -> dict:
             # Call traditional 4-color generator
             return generate_calibration_board(color_mode, block_size, gap, backing)
     
-    def generate_board_with_stats(color_mode, block_size, gap, backing, lang):
-        """Generate board and return updated stats."""
-        result = generate_board_wrapper(color_mode, block_size, gap, backing)
-        # Get updated stats
-        stats = Stats.get_all()
-        stats_html = _get_stats_html(lang, stats)
-        return result + (stats_html,)
-    
     components['btn_cal_generate_btn'].click(
-            generate_board_with_stats,
+            generate_board_wrapper,
             inputs=[
                 components['radio_cal_color_mode'],
                 components['slider_cal_block_size'],
                 components['slider_cal_gap'],
-                components['dropdown_cal_backing'],
-                gr.State(lang)
+                components['dropdown_cal_backing']
             ],
             outputs=[
                 components['file_cal_download'],
                 cal_preview,
-                components['textbox_cal_status'],
-                stats_html
+                components['textbox_cal_status']
             ]
     )
     
@@ -1584,22 +1591,7 @@ def create_extractor_tab_content(lang: str) -> dict:
             components['file_ext_download_npy'], components['textbox_ext_status']
     ]
     
-    def run_extraction_with_stats(*args):
-        """Run extraction and return updated stats."""
-        from core.i18n import I18n
-        result = run_extraction(*args)
-        # Get updated stats
-        stats = Stats.get_all()
-        # Get current language from args or default to zh
-        lang = "zh"
-        stats_html = _get_stats_html(lang, stats)
-        return result + (stats_html,)
-    
-    components['btn_ext_extract_btn'].click(
-        run_extraction_with_stats,
-        extract_inputs,
-        extract_outputs + [stats_html]
-    )
+    components['btn_ext_extract_btn'].click(run_extraction, extract_inputs, extract_outputs)
     
     for s in [components['slider_ext_offset_x'], components['slider_ext_offset_y'],
                   components['slider_ext_zoom'], components['slider_ext_distortion']]:
