@@ -100,6 +100,29 @@ CROP_MODAL_JS = """
     opacity: 0 !important;
     visibility: hidden !important;
 }
+
+/* Hidden textbox triggers - small but still in DOM flow for Gradio events */
+.hidden-textbox-trigger {
+    height: 1px !important;
+    min-height: 1px !important;
+    max-height: 1px !important;
+    overflow: hidden !important;
+    opacity: 0.01 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    position: absolute !important;
+    left: -9999px !important;
+}
+.hidden-textbox-trigger textarea,
+.hidden-textbox-trigger input,
+.hidden-textbox-trigger button {
+    height: 1px !important;
+    min-height: 1px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+}
 </style>
 <script>
 window.cropper = null;
@@ -226,6 +249,132 @@ window.confirmCrop = function() {
 };
 
 console.log('Crop modal JS loaded, openCropModal:', typeof window.openCropModal);
+
+// ═══════════════════════════════════════════════════════════════
+// Color Palette Click Handler (Global - survives Gradio re-renders)
+// ═══════════════════════════════════════════════════════════════
+
+(function() {
+    // LUT color search filter function (called from oninput attribute)
+    window.filterLutColors = function(searchValue) {
+        var query = searchValue.toLowerCase().replace('#', '');
+        var containers = document.querySelectorAll('.lut-color-swatch-container');
+        var visibleCount = 0;
+        containers.forEach(function(container) {
+            var swatch = container.querySelector('.lut-color-swatch');
+            if (swatch) {
+                var color = swatch.getAttribute('data-color').toLowerCase().replace('#', '');
+                if (query === '' || color.includes(query)) {
+                    container.style.display = 'flex';
+                    visibleCount++;
+                } else {
+                    container.style.display = 'none';
+                }
+            }
+        });
+        var countEl = document.getElementById('lut-color-visible-count');
+        if (countEl) countEl.textContent = visibleCount;
+    };
+    
+    // Helper function to update Gradio textbox
+    function updateGradioTextbox(elemId, value) {
+        var container = document.querySelector('#' + elemId);
+        if (!container) {
+            console.warn('[Palette] Container not found:', elemId);
+            return false;
+        }
+        var input = container.querySelector('textarea, input[type="text"], input');
+        if (input) {
+            var nativeSetter = Object.getOwnPropertyDescriptor(
+                input.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 
+                'value'
+            );
+            if (nativeSetter && nativeSetter.set) {
+                nativeSetter.set.call(input, value);
+            } else {
+                input.value = value;
+            }
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log('[Palette] Updated textbox:', elemId, 'with value:', value);
+            return true;
+        }
+        console.warn('[Palette] Input not found in container:', elemId);
+        return false;
+    }
+    
+    // Handle palette swatch click
+    function handlePaletteSwatchClick(e) {
+        var swatch = e.target.closest('.palette-swatch');
+        if (!swatch) return;
+        
+        var hexColor = swatch.getAttribute('data-color');
+        if (!hexColor) return;
+        
+        console.log('[Palette] Color clicked:', hexColor);
+        
+        // Update hidden textboxes
+        updateGradioTextbox('conv-color-selected-hidden', hexColor);
+        updateGradioTextbox('conv-highlight-color-hidden', hexColor);
+        
+        // Update visual selection
+        document.querySelectorAll('.palette-swatch').forEach(function(el) {
+            el.style.outline = 'none';
+            el.style.outlineOffset = '0px';
+        });
+        swatch.style.outline = '3px solid #2196F3';
+        swatch.style.outlineOffset = '2px';
+        
+        // Click hidden buttons to trigger Gradio callbacks
+        setTimeout(function() {
+            window.clickGradioButton('conv-color-trigger-btn');
+            window.clickGradioButton('conv-highlight-trigger-btn');
+        }, 50);
+    }
+    
+    // Handle LUT color swatch click
+    function handleLutSwatchClick(e) {
+        var swatch = e.target.closest('.lut-color-swatch');
+        if (!swatch) return;
+        
+        var hexColor = swatch.getAttribute('data-color');
+        if (!hexColor) return;
+        
+        console.log('[LUT] Color clicked:', hexColor);
+        
+        // Update hidden textbox
+        updateGradioTextbox('conv-lut-color-selected-hidden', hexColor);
+        
+        // Update visual selection
+        document.querySelectorAll('.lut-color-swatch').forEach(function(el) {
+            el.style.outline = 'none';
+            el.style.outlineOffset = '0px';
+        });
+        swatch.style.outline = '3px solid #2196F3';
+        swatch.style.outlineOffset = '2px';
+        
+        // Click hidden button to trigger Gradio callback
+        setTimeout(function() {
+            window.clickGradioButton('conv-lut-color-trigger-btn');
+        }, 50);
+    }
+    
+    // Use event delegation on document body - this survives Gradio re-renders
+    document.addEventListener('click', function(e) {
+        // Check for palette swatch
+        if (e.target.closest('.palette-swatch')) {
+            handlePaletteSwatchClick(e);
+            return;
+        }
+        // Check for LUT swatch
+        if (e.target.closest('.lut-color-swatch')) {
+            handleLutSwatchClick(e);
+            return;
+        }
+    }, true);  // Use capture phase to ensure we get the event first
+    
+    console.log('[Palette] Global click handler installed');
+})();
 </script>
 """
 

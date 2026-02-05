@@ -148,6 +148,10 @@ class I18n:
             'zh': '确认裁剪',
             'en': 'Confirm crop'
         },
+        'crop_auto_color': {
+            'zh': '🎨 计算最佳色彩细节',
+            'en': '🎨 Calculate optimal color detail'
+        },
         'conv_params_section': {
             'zh': '#### ⚙️ 参数',
             'en': '#### ⚙️ Parameters'
@@ -203,6 +207,14 @@ class I18n:
         'conv_quantize_info': {
             'zh': '颜色数量越多细节越丰富，但生成越慢',
             'en': 'Higher = More detail, Slower'
+        },
+        'conv_auto_color_btn': {
+            'zh': '🔍 自动计算',
+            'en': '🔍 Auto Detect'
+        },
+        'conv_auto_color_calculating': {
+            'zh': '⏳ 计算中...',
+            'en': '⏳ Calculating...'
         },
         'conv_auto_bg': {
             'zh': '🗑️ 移除背景',

@@ -10,6 +10,8 @@ import tempfile
 from dataclasses import dataclass
 from typing import Tuple, Optional
 
+import cv2
+import numpy as np
 from PIL import Image
 
 
@@ -272,3 +274,26 @@ class ImagePreprocessor:
             original_format=fmt,
             was_converted=was_converted
         )
+
+
+    @staticmethod
+    def analyze_recommended_colors(image_path: str, target_width_mm: float = 60.0) -> dict:
+        """
+        分析图片，推荐最佳量化颜色数。
+        
+        委托给 ColorAnalyzer 模块处理。
+        
+        Args:
+            image_path: 图片路径
+            target_width_mm: 目标打印宽度（毫米），默认 60mm
+            
+        Returns:
+            dict: {
+                'recommended': 推荐颜色数,
+                'max_safe': 最大安全颜色数（超过会有噪点）,
+                'unique_colors': 独特颜色数,
+                'complexity_score': 复杂度评分 (0-100)
+            }
+        """
+        from core.color_analyzer import analyze_recommended_colors as _analyze
+        return _analyze(image_path, target_width_mm)

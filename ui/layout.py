@@ -34,7 +34,10 @@ from .callbacks import (
     on_extractor_click,
     on_extractor_clear,
     on_lut_select,
-    on_lut_upload_save
+    on_lut_upload_save,
+    on_apply_color_replacement,
+    on_clear_color_replacements,
+    on_preview_generated_update_palette
 )
 
 
@@ -355,10 +358,41 @@ def create_converter_tab():
                 conv_preview = gr.Image(
                     label="",
                     type="numpy",
-                    height=500,
+                    height=400,
                     interactive=False,  # 禁止拖拽上传
                     show_label=False
                 )
+
+                # ========== NEW: Color Palette & Replacement ==========
+                with gr.Accordion("🎨 颜色调色板 Color Palette", open=False):
+                    # State for color replacement
+                    conv_selected_color = gr.State(None)  # Currently selected color hex
+                    conv_replacement_map = gr.State({})   # {original_hex: replacement_hex}
+                    
+                    # Palette display
+                    conv_palette_html = gr.HTML(
+                        value="<p style='color:#888;'>生成预览后显示调色板 | Generate preview to see palette</p>",
+                        label=""
+                    )
+                    
+                    # Color replacement controls
+                    with gr.Row():
+                        conv_color_picker = gr.ColorPicker(
+                            label="选择替换颜色 Replacement Color",
+                            value="#FF0000",
+                            scale=1
+                        )
+                        conv_selected_display = gr.Textbox(
+                            label="已选颜色 Selected",
+                            value="未选择",
+                            interactive=False,
+                            scale=1
+                        )
+                    
+                    with gr.Row():
+                        conv_apply_replacement = gr.Button("✅ 应用替换 Apply", size="sm")
+                        conv_clear_replacements = gr.Button("🗑️ 清除所有 Clear All", size="sm")
+                # ========== END NEW ==========
 
                 # Loop settings
                 with gr.Group():
@@ -374,7 +408,7 @@ def create_converter_tab():
                         conv_loop_angle = gr.Slider(-180, 180, 0, step=5, label="旋转角度°")
                         conv_loop_info = gr.Textbox(label="挂孔位置", interactive=False, scale=2)
 
-                conv_log = gr.Textbox(label="状态", lines=6, interactive=False, max_lines=10, show_label=True)
+                conv_log = gr.Textbox(label="状态", lines=4, interactive=False, max_lines=6, show_label=True)
 
             # Right: Output
             with gr.Column(scale=1):
@@ -404,11 +438,36 @@ def create_converter_tab():
             outputs=[conv_lut_dropdown, conv_lut_status]
         )
 
-        # Generate preview
+        # Generate preview and update palette
         conv_preview_btn.click(
             generate_preview_cached,
-            inputs=[conv_img, conv_lut_path, conv_width, conv_auto_bg, conv_tol, conv_color_mode],
+            inputs=[conv_img, conv_lut_path, conv_width, conv_auto_bg, conv_tol, conv_color_mode, conv_modeling_mode, conv_quantize_count],
             outputs=[conv_preview, conv_preview_cache, conv_log]
+        ).then(
+            on_preview_generated_update_palette,
+            inputs=[conv_preview_cache],
+            outputs=[conv_palette_html]
+        )
+
+        # Color replacement: Apply replacement
+        conv_apply_replacement.click(
+            on_apply_color_replacement,
+            inputs=[
+                conv_preview_cache, conv_selected_color, conv_color_picker,
+                conv_replacement_map, conv_loop_pos, conv_add_loop,
+                conv_loop_width, conv_loop_length, conv_loop_hole, conv_loop_angle
+            ],
+            outputs=[conv_preview, conv_preview_cache, conv_palette_html, conv_replacement_map, conv_log]
+        )
+
+        # Color replacement: Clear all replacements
+        conv_clear_replacements.click(
+            on_clear_color_replacements,
+            inputs=[
+                conv_preview_cache, conv_loop_pos, conv_add_loop,
+                conv_loop_width, conv_loop_length, conv_loop_hole, conv_loop_angle
+            ],
+            outputs=[conv_preview, conv_preview_cache, conv_palette_html, conv_replacement_map, conv_log]
         )
 
         # Click preview image to place loop
@@ -450,7 +509,7 @@ def create_converter_tab():
             inputs=[conv_img, conv_lut_path, conv_width, conv_thick,
                     conv_structure, conv_auto_bg, conv_tol, conv_color_mode,
                     conv_add_loop, conv_loop_width, conv_loop_length, conv_loop_hole, conv_loop_pos,
-                    conv_modeling_mode, conv_quantize_count],  # NEW: Added modeling_mode and quantize_count
+                    conv_modeling_mode, conv_quantize_count, conv_replacement_map],  # Added color_replacements
             outputs=[conv_file, conv_3d_preview, conv_preview, conv_log]
         )
 

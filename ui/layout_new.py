@@ -42,7 +42,18 @@ from .callbacks import (
     on_extractor_click,
     on_extractor_clear,
     on_lut_select,
-    on_lut_upload_save
+    on_lut_upload_save,
+    on_apply_color_replacement,
+    on_clear_color_replacements,
+    on_undo_color_replacement,
+    on_preview_generated_update_palette,
+    on_color_swatch_click,
+    on_lut_change_update_colors,
+    on_lut_color_swatch_click,
+    on_replacement_color_select,
+    on_preview_update_lut_colors,
+    on_highlight_color_change,
+    on_clear_highlight
 )
 
 # Runtime-injected i18n keys (avoids editing core/i18n.py).
@@ -365,7 +376,7 @@ def map_modeling_mode(mode_display_text):
 def generate_final_model_with_mapping(image_path, lut_path, target_width_mm, spacer_thick,
                                       structure_mode, auto_bg, bg_tol, color_mode,
                                       add_loop, loop_width, loop_length, loop_hole, loop_pos,
-                                      modeling_mode_display, quantize_colors):
+                                      modeling_mode_display, quantize_colors, color_replacements=None):
     """Run final model generation with UI mode label mapped to internal mode.
 
     Returns:
@@ -376,14 +387,14 @@ def generate_final_model_with_mapping(image_path, lut_path, target_width_mm, spa
         image_path, lut_path, target_width_mm, spacer_thick,
         structure_mode, auto_bg, bg_tol, color_mode,
         add_loop, loop_width, loop_length, loop_hole, loop_pos,
-        modeling_mode, quantize_colors
+        modeling_mode, quantize_colors, color_replacements
     )
 
 
 def process_batch_generation(batch_files, is_batch, single_image, lut_path, target_width_mm,
                              spacer_thick, structure_mode, auto_bg, bg_tol, color_mode,
                              add_loop, loop_width, loop_length, loop_hole, loop_pos,
-                             modeling_mode_display, quantize_colors, progress=gr.Progress()):
+                             modeling_mode_display, quantize_colors, color_replacements=None, progress=gr.Progress()):
     """Dispatch to single-image or batch generation; batch writes a ZIP of 3MFs.
 
     Returns:
@@ -391,7 +402,7 @@ def process_batch_generation(batch_files, is_batch, single_image, lut_path, targ
     """
     args = (lut_path, target_width_mm, spacer_thick, structure_mode, auto_bg, bg_tol,
             color_mode, add_loop, loop_width, loop_length, loop_hole, loop_pos,
-            modeling_mode_display, quantize_colors)
+            modeling_mode_display, quantize_colors, color_replacements)
 
     if not is_batch:
         return generate_final_model_with_mapping(single_image, *args)
@@ -532,6 +543,10 @@ def create_app():
             fn=on_lut_select,
             inputs=[components['dropdown_conv_lut_dropdown']],
             outputs=[components['state_conv_lut_path'], components['md_conv_lut_status']]
+        ).then(
+            fn=on_lut_change_update_colors,
+            inputs=[components['state_conv_lut_path']],
+            outputs=[components['html_conv_lut_colors']]
         )
 
     return app
@@ -803,7 +818,7 @@ def create_converter_tab_content(lang: str) -> dict:
             
             # Hidden textbox for JavaScript to pass crop data to Python (use CSS to hide)
             crop_data_json = gr.Textbox(
-                value='{"x":0,"y":0,"w":100,"h":100}',
+                value='{"x":0,"y":0,"w":100,"h":100,"autoColor":true}',
                 elem_id="crop-data-json",
                 visible=True,
                 elem_classes=["hidden-crop-component"]
@@ -908,8 +923,16 @@ def create_converter_tab_content(lang: str) -> dict:
                     components['slider_conv_quantize_colors'] = gr.Slider(
                         minimum=8, maximum=256, step=8, value=64,
                         label=I18n.get('conv_quantize_colors', lang),
-                        info=I18n.get('conv_quantize_info', lang)
+                        info=I18n.get('conv_quantize_info', lang),
+                        scale=3
                     )
+                    components['btn_conv_auto_color'] = gr.Button(
+                        I18n.get('conv_auto_color_btn', lang),
+                        variant="secondary",
+                        size="sm",
+                        scale=1
+                    )
+                with gr.Row():
                     components['slider_conv_tolerance'] = gr.Slider(
                         0, 150, 40,
                         label=I18n.get('conv_tolerance', lang),
@@ -942,6 +965,114 @@ def create_converter_tab_content(lang: str) -> dict:
                         interactive=False,
                         show_label=False
                     )
+                    
+                    # ========== Color Palette & Replacement ==========
+                    with gr.Accordion("🎨 颜色调色板 Color Palette", open=False):
+                        # State for color replacement
+                        conv_selected_color = gr.State(None)  # Currently selected color hex
+                        conv_replacement_map = gr.State({})   # {original_hex: replacement_hex}
+                        conv_replacement_history = gr.State([])  # History stack for undo
+                        conv_replacement_color_state = gr.State(None)  # Selected replacement color from LUT
+                        
+                        # Palette display (clickable swatches)
+                        conv_palette_html = gr.HTML(
+                            value="<p style='color:#888;'>生成预览后显示调色板 | Generate preview to see palette</p>",
+                            label=""
+                        )
+                        
+                        # Hidden textbox to receive color selection from JavaScript
+                        # Note: Must be visible in DOM for JavaScript to update, but hidden via CSS
+                        conv_color_selected_hidden = gr.Textbox(
+                            value="",
+                            visible=True,
+                            interactive=True,
+                            elem_id="conv-color-selected-hidden",
+                            elem_classes=["hidden-textbox-trigger"],
+                            label="",
+                            show_label=False,
+                            container=False
+                        )
+                        
+                        # Hidden textbox to receive highlight color from JavaScript (for preview highlight)
+                        conv_highlight_color_hidden = gr.Textbox(
+                            value="",
+                            visible=True,
+                            interactive=True,
+                            elem_id="conv-highlight-color-hidden",
+                            elem_classes=["hidden-textbox-trigger"],
+                            label="",
+                            show_label=False,
+                            container=False
+                        )
+                        
+                        # Hidden button to trigger highlight (clicked by JavaScript)
+                        conv_highlight_trigger_btn = gr.Button(
+                            "trigger_highlight",
+                            elem_id="conv-highlight-trigger-btn",
+                            elem_classes=["hidden-textbox-trigger"],
+                            visible=True
+                        )
+                        
+                        # Color replacement controls
+                        with gr.Row():
+                            conv_selected_display = gr.Textbox(
+                                label="已选颜色 Selected",
+                                value="未选择",
+                                interactive=False,
+                                scale=1
+                            )
+                        
+                        # LUT available colors - clickable grid (no dropdown)
+                        gr.Markdown("### 🎨 替换为 LUT 可用颜色 | Replace with LUT Color")
+                        gr.Markdown("*点击色块选择替换颜色 | Click a color swatch to select*", elem_classes=["text-muted"])
+                        
+                        # Visual clickable grid of available LUT colors
+                        conv_lut_colors_html = gr.HTML(
+                            value="<p style='color:#888;'>选择 LUT 后显示可用颜色 | Select LUT to see available colors</p>",
+                            label=""
+                        )
+                        
+                        # Hidden textbox to receive LUT color selection from JavaScript
+                        conv_lut_color_selected_hidden = gr.Textbox(
+                            value="",
+                            visible=True,
+                            interactive=True,
+                            elem_id="conv-lut-color-selected-hidden",
+                            elem_classes=["hidden-textbox-trigger"],
+                            label="",
+                            show_label=False,
+                            container=False
+                        )
+                        
+                        # Hidden button to trigger LUT color selection (clicked by JavaScript)
+                        conv_lut_color_trigger_btn = gr.Button(
+                            "trigger_lut_color",
+                            elem_id="conv-lut-color-trigger-btn",
+                            elem_classes=["hidden-textbox-trigger"],
+                            visible=True
+                        )
+                        
+                        # Hidden button to trigger palette color selection (clicked by JavaScript)
+                        conv_color_trigger_btn = gr.Button(
+                            "trigger_color",
+                            elem_id="conv-color-trigger-btn",
+                            elem_classes=["hidden-textbox-trigger"],
+                            visible=True
+                        )
+                        
+                        conv_replacement_display = gr.Textbox(
+                            label="替换颜色 Replacement",
+                            value="未选择替换颜色",
+                            interactive=False,
+                            scale=1
+                        )
+                        
+                        with gr.Row():
+                            conv_apply_replacement = gr.Button("✅ 应用替换 Apply", size="sm")
+                            conv_undo_replacement = gr.Button("↩️ 撤销 Undo", size="sm")
+                            conv_clear_replacements = gr.Button("🗑️ 清除所有 Clear All", size="sm")
+                    # ========== END Color Palette ==========
+                    
                     with gr.Group():
                         components['md_conv_loop_section'] = gr.Markdown(
                             I18n.get('conv_loop_section', lang)
@@ -1029,7 +1160,7 @@ def create_converter_tab_content(lang: str) -> dict:
     from core.image_preprocessor import ImagePreprocessor
     
     def on_image_upload_process_with_html(image_path):
-        """When image is uploaded, process and prepare for crop modal"""
+        """When image is uploaded, process and prepare for crop modal (不分析颜色)"""
         if image_path is None:
             return (
                 0, 0, None,
@@ -1038,13 +1169,14 @@ def create_converter_tab_content(lang: str) -> dict:
         
         try:
             info = ImagePreprocessor.process_upload(image_path)
+            # 不在这里分析颜色，等用户确认裁剪后再分析
             dimensions_html = f'<div id="preprocess-dimensions-data" data-width="{info.width}" data-height="{info.height}" style="display:none;"></div>'
             return (info.width, info.height, info.processed_path, dimensions_html)
         except Exception as e:
             print(f"Image upload error: {e}")
             return (0, 0, None, '<div id="preprocess-dimensions-data" data-width="0" data-height="0" style="display:none;"></div>')
     
-    # JavaScript to open crop modal
+    # JavaScript to open crop modal (不传递颜色推荐，弹窗中不显示)
     open_crop_modal_js = """
     () => {
         setTimeout(() => {
@@ -1057,7 +1189,7 @@ def create_converter_tab_content(lang: str) -> dict:
                     if (imgContainer) {
                         const img = imgContainer.querySelector('img');
                         if (img && img.src && typeof window.openCropModal === 'function') {
-                            window.openCropModal(img.src, width, height);
+                            window.openCropModal(img.src, width, height, 0, 0);
                         }
                     }
                 }
@@ -1077,24 +1209,27 @@ def create_converter_tab_content(lang: str) -> dict:
         js=open_crop_modal_js
     )
     
-    def use_original_image(processed_path, w, h):
+    def use_original_image_simple(processed_path, w, h, crop_json):
         """Use original image without cropping"""
+        print(f"[DEBUG] use_original_image_simple called: {processed_path}")
         if processed_path is None:
             return None
         try:
-            return ImagePreprocessor.convert_to_png(processed_path)
+            result_path = ImagePreprocessor.convert_to_png(processed_path)
+            return result_path
         except Exception as e:
             print(f"Use original error: {e}")
             return None
     
     use_original_btn.click(
-        use_original_image,
-        inputs=[preprocess_processed_path, preprocess_img_width, preprocess_img_height],
+        use_original_image_simple,
+        inputs=[preprocess_processed_path, preprocess_img_width, preprocess_img_height, crop_data_json],
         outputs=[components['image_conv_image_label']]
     )
     
-    def confirm_crop_image(processed_path, crop_json):
-        """Crop image with specified region from JSON data"""
+    def confirm_crop_image_simple(processed_path, crop_json):
+        """Crop image with specified region"""
+        print(f"[DEBUG] confirm_crop_image_simple called: {processed_path}, {crop_json}")
         if processed_path is None:
             return None
         try:
@@ -1104,15 +1239,79 @@ def create_converter_tab_content(lang: str) -> dict:
             y = int(data.get("y", 0))
             w = int(data.get("w", 100))
             h = int(data.get("h", 100))
-            return ImagePreprocessor.crop_image(processed_path, x, y, w, h)
+            
+            result_path = ImagePreprocessor.crop_image(processed_path, x, y, w, h)
+            return result_path
         except Exception as e:
             print(f"Crop error: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     confirm_crop_btn.click(
-        confirm_crop_image,
+        confirm_crop_image_simple,
         inputs=[preprocess_processed_path, crop_data_json],
         outputs=[components['image_conv_image_label']]
+    )
+    
+    # ========== Auto Color Detection Button ==========
+    # 用于触发 toast 的隐藏 HTML 组件
+    color_toast_trigger = gr.HTML(value="", visible=True, elem_classes=["hidden-crop-component"])
+    
+    # JavaScript to show color recommendation toast
+    show_toast_js = """
+    () => {
+        setTimeout(() => {
+            const trigger = document.querySelector('#color-rec-trigger');
+            if (trigger) {
+                const recommended = parseInt(trigger.dataset.recommended) || 0;
+                const maxSafe = parseInt(trigger.dataset.maxsafe) || 0;
+                if (recommended > 0 && typeof window.showColorRecommendationToast === 'function') {
+                    const lang = document.documentElement.lang || 'zh';
+                    let msg;
+                    if (lang === 'en') {
+                        msg = '💡 Color detail set to <b>' + recommended + '</b> (max safe: ' + maxSafe + ')';
+                    } else {
+                        msg = '💡 色彩细节已设置为 <b>' + recommended + '</b>（最大安全值: ' + maxSafe + '）';
+                    }
+                    window.showColorRecommendationToast(msg);
+                }
+                trigger.remove();
+            }
+        }, 100);
+    }
+    """
+    
+    def auto_detect_colors(image_path, target_width_mm):
+        """自动检测推荐的色彩细节值"""
+        if image_path is None:
+            return gr.update(), ""
+        try:
+            import time
+            print(f"[AutoColor] 开始分析: {image_path}, 目标宽度: {target_width_mm}mm")
+            color_analysis = ImagePreprocessor.analyze_recommended_colors(image_path, target_width_mm)
+            recommended = color_analysis.get('recommended', 24)
+            max_safe = color_analysis.get('max_safe', 32)
+            print(f"[AutoColor] 分析完成: recommended={recommended}, max_safe={max_safe}")
+            # 添加时间戳确保每次返回值不同，触发 .then() 中的 JavaScript
+            timestamp = int(time.time() * 1000)
+            toast_html = f'<div id="color-rec-trigger" data-recommended="{recommended}" data-maxsafe="{max_safe}" data-ts="{timestamp}" style="display:none;"></div>'
+            return gr.update(value=recommended), toast_html
+        except Exception as e:
+            print(f"[AutoColor] 分析失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return gr.update(), ""
+    
+    components['btn_conv_auto_color'].click(
+        auto_detect_colors,
+        inputs=[components['image_conv_image_label'], components['slider_conv_width']],
+        outputs=[components['slider_conv_quantize_colors'], color_toast_trigger]
+    ).then(
+        fn=None,
+        inputs=None,
+        outputs=None,
+        js=show_toast_js
     )
     # ========== END Image Crop Extension Events ==========
 
@@ -1124,6 +1323,10 @@ def create_converter_tab_content(lang: str) -> dict:
             fn=save_last_lut_setting,
             inputs=[components['dropdown_conv_lut_dropdown']],
             outputs=None
+    ).then(
+            fn=on_lut_change_update_colors,
+            inputs=[conv_lut_path],
+            outputs=[conv_lut_colors_html]
     )
 
     conv_lut_upload.upload(
@@ -1156,10 +1359,85 @@ def create_converter_tab_content(lang: str) -> dict:
                 components['checkbox_conv_auto_bg'],
                 components['slider_conv_tolerance'],
                 components['radio_conv_color_mode'],
-                components['radio_conv_modeling_mode']
+                components['radio_conv_modeling_mode'],
+                components['slider_conv_quantize_colors']
             ],
             outputs=[conv_preview, conv_preview_cache, components['textbox_conv_status']]
+    ).then(
+            on_preview_generated_update_palette,
+            inputs=[conv_preview_cache],
+            outputs=[conv_palette_html, conv_selected_color]
+    ).then(
+            on_preview_update_lut_colors,
+            inputs=[conv_preview_cache, conv_lut_path],
+            outputs=[conv_lut_colors_html]
     )
+    
+    # Hidden textbox receives color selection from JavaScript click (palette)
+    # Use button click instead of textbox change for more reliable triggering
+    conv_color_trigger_btn.click(
+            on_color_swatch_click,
+            inputs=[conv_color_selected_hidden],
+            outputs=[conv_selected_color, conv_selected_display]
+    )
+    
+    # Hidden textbox receives highlight color from JavaScript click (triggers preview highlight)
+    # Use button click instead of textbox change for more reliable triggering
+    conv_highlight_trigger_btn.click(
+            on_highlight_color_change,
+            inputs=[
+                conv_highlight_color_hidden, conv_preview_cache, conv_loop_pos,
+                components['checkbox_conv_loop_enable'],
+                components['slider_conv_loop_width'], components['slider_conv_loop_length'],
+                components['slider_conv_loop_hole'], components['slider_conv_loop_angle']
+            ],
+            outputs=[conv_preview, components['textbox_conv_status']]
+    )
+    
+    # Hidden textbox receives LUT color selection from JavaScript click
+    # Use button click instead of textbox change for more reliable triggering
+    conv_lut_color_trigger_btn.click(
+            on_lut_color_swatch_click,
+            inputs=[conv_lut_color_selected_hidden],
+            outputs=[conv_replacement_color_state, conv_replacement_display]
+    )
+    
+    # Color replacement: Apply replacement
+    conv_apply_replacement.click(
+            on_apply_color_replacement,
+            inputs=[
+                conv_preview_cache, conv_selected_color, conv_replacement_color_state,
+                conv_replacement_map, conv_replacement_history, conv_loop_pos, components['checkbox_conv_loop_enable'],
+                components['slider_conv_loop_width'], components['slider_conv_loop_length'],
+                components['slider_conv_loop_hole'], components['slider_conv_loop_angle']
+            ],
+            outputs=[conv_preview, conv_preview_cache, conv_palette_html, conv_replacement_map, conv_replacement_history, components['textbox_conv_status']]
+    )
+    
+    # Color replacement: Undo last replacement
+    conv_undo_replacement.click(
+            on_undo_color_replacement,
+            inputs=[
+                conv_preview_cache, conv_replacement_map, conv_replacement_history,
+                conv_loop_pos, components['checkbox_conv_loop_enable'],
+                components['slider_conv_loop_width'], components['slider_conv_loop_length'],
+                components['slider_conv_loop_hole'], components['slider_conv_loop_angle']
+            ],
+            outputs=[conv_preview, conv_preview_cache, conv_palette_html, conv_replacement_map, conv_replacement_history, components['textbox_conv_status']]
+    )
+    
+    # Color replacement: Clear all replacements
+    conv_clear_replacements.click(
+            on_clear_color_replacements,
+            inputs=[
+                conv_preview_cache, conv_replacement_map, conv_replacement_history,
+                conv_loop_pos, components['checkbox_conv_loop_enable'],
+                components['slider_conv_loop_width'], components['slider_conv_loop_length'],
+                components['slider_conv_loop_hole'], components['slider_conv_loop_angle']
+            ],
+            outputs=[conv_preview, conv_preview_cache, conv_palette_html, conv_replacement_map, conv_replacement_history, components['textbox_conv_status']]
+    )
+    
     conv_preview.select(
             on_preview_click,
             inputs=[conv_preview_cache, conv_loop_pos],
@@ -1221,7 +1499,8 @@ def create_converter_tab_content(lang: str) -> dict:
                 components['slider_conv_loop_hole'],
                 conv_loop_pos,
                 components['radio_conv_modeling_mode'],
-                components['slider_conv_quantize_colors']
+                components['slider_conv_quantize_colors'],
+                conv_replacement_map
             ],
             outputs=[
                 components['file_conv_download_file'],
@@ -1237,6 +1516,7 @@ def create_converter_tab_content(lang: str) -> dict:
         cancels=[generate_event]
     )
     components['state_conv_lut_path'] = conv_lut_path
+    components['html_conv_lut_colors'] = conv_lut_colors_html
     return components
 
 
