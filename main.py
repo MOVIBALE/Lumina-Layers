@@ -53,8 +53,23 @@ def find_available_port(start_port=7860, max_attempts=1000):
     raise RuntimeError(f"No available port found after {max_attempts} attempts")
 
 def start_browser(port):
-    """Launch the default web browser after a short delay."""
-    time.sleep(2)
+    """Launch the default web browser after server is ready."""
+    import urllib.request
+    import time
+    
+    # Wait for server to be ready (max 30 seconds)
+    max_attempts = 30
+    for i in range(max_attempts):
+        try:
+            # Try to connect to the server
+            urllib.request.urlopen(f"http://127.0.0.1:{port}", timeout=1)
+            print(f"✅ Server is ready, opening browser...")
+            webbrowser.open(f"http://127.0.0.1:{port}")
+            return
+        except:
+            time.sleep(1)
+    
+    print(f"⚠️ Server didn't start in time, opening browser anyway...")
     webbrowser.open(f"http://127.0.0.1:{port}")
 
 if __name__ == "__main__":

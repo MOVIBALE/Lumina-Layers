@@ -14,7 +14,10 @@ import gradio as gr
 from config import PrinterConfig, ColorSystem, ModelingMode, PREVIEW_SCALE, PREVIEW_MARGIN, OUTPUT_DIR
 from utils import Stats, safe_fix_3mf_names
 
-from core.image_processing import LuminaImageProcessor
+try:
+    from core.image_processing_cuda import LuminaImageProcessorCUDA as LuminaImageProcessor
+except ImportError:
+    from core.image_processing import LuminaImageProcessor
 from core.mesh_generators import get_mesher
 from core.geometry_utils import create_keychain_loop
 

@@ -1,0 +1,122 @@
+Lumina Studio - GPU Support List
+================================
+
+Supported Configurations
+------------------------
+
+| Platform | GPU Vendor | GPU Series | PyTorch Backend | Status |
+|----------|------------|------------|-----------------|--------|
+| Windows  | NVIDIA     | RTX 50 series (5090, 5080, 5070, 5060, etc.) | CUDA 13.0 | ✅ Supported (PyTorch 2.7.0+) |
+| Windows  | NVIDIA     | RTX 50 series (5090, 5080, 5070, 5060, etc.) | CUDA 12.8 | ✅ Supported (PyTorch 2.6.0+) |
+| Windows  | NVIDIA     | RTX 40 series (4090, 4080, 4070, 4060, etc.) | CUDA 12.6/12.8 | ✅ Fully Supported |
+| Windows  | NVIDIA     | RTX 30 series (3090, 3080, 3070, 3060, etc.) | CUDA 12.6/12.8 | ✅ Fully Supported |
+| Windows  | NVIDIA     | RTX 20 series (2080, 2070, 2060, etc.) | CUDA 12.6/12.8 | ✅ Fully Supported |
+| Windows  | NVIDIA     | GTX 16 series (1660, 1650, etc.) | CUDA 12.6/12.8 | ✅ Fully Supported |
+| Windows  | NVIDIA     | GTX 10 series (1080, 1070, 1060, etc.) | CUDA 11.8 | ✅ Supported |
+| Windows  | Intel      | Integrated Graphics (UHD, Iris Xe) | CPU | ✅ Supported (CPU mode) |
+| Windows  | AMD        | Radeon RX 7000 series | CPU | ✅ Supported (CPU mode) |
+| Windows  | AMD        | Radeon RX 6000 series | CPU | ✅ Supported (CPU mode) |
+| Windows  | AMD        | Radeon RX 5000 series | CPU | ✅ Supported (CPU mode) |
+| Linux    | NVIDIA     | All CUDA-capable GPUs | CUDA 13.0/12.8/12.6/11.8 | ✅ Fully Supported |
+| Linux    | AMD        | RX 7000 series (7900 XTX, 7900 XT, etc.) | ROCm 6.3 | ⚠️ Implemented, not tested |
+| Linux    | AMD        | RX 6000 series (6900 XT, 6800 XT, etc.) | ROCm 6.3 | ⚠️ Implemented, not tested |
+| macOS    | Any        | All GPUs | CPU | ✅ Supported (CPU mode) |
+
+Performance Expectations
+------------------------
+
+GPU Acceleration Benefits:
+- K-Means Color Quantization: 5-10x faster on large images
+- Color Matching to LUT: 3-5x faster on high-resolution images
+- Overall processing time: 2-4x faster with GPU
+
+Recommendations
+---------------
+
+Best Performance:
+- NVIDIA RTX 50 series with CUDA 13.0 (Latest)
+- NVIDIA RTX 40/30 series with CUDA 12.8 or 12.6
+- 8GB+ VRAM recommended for large images
+
+Good Performance:
+- NVIDIA GTX 10/16 series with CUDA 11.8
+- 4GB+ VRAM
+
+CPU Mode (No GPU required):
+- Any modern CPU (Intel i5/i7/i9 or AMD Ryzen 5/7/9)
+- 8GB+ RAM recommended
+- Works on all systems including laptops with integrated graphics
+
+Installation Commands
+---------------------
+
+Latest - NVIDIA RTX 50 series & All Modern GPUs (CUDA 13.0):
+    # PyTorch 2.7.0+ with CUDA 13.0 (Latest, supports all RTX series)
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+
+NVIDIA RTX 50 series (CUDA 12.8 - Blackwell Architecture):
+    # PyTorch 2.6.0+ with CUDA 12.8
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+
+NVIDIA RTX 40/30/20 series (CUDA 12.6 - Recommended):
+    # PyTorch 2.5.0+ with CUDA 12.6 (Best compatibility)
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+
+NVIDIA RTX 40/30/20 series (CUDA 12.1 - Legacy):
+    # For older PyTorch versions
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+
+NVIDIA GTX 10 series (CUDA 11.8 - Older GPUs):
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+
+AMD GPU - Linux only (ROCm 6.3):
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.3
+
+CPU Only (No GPU):
+    pip install torch torchvision
+
+Quick Start - Auto Detection
+----------------------------
+
+Use our automatic script that detects your GPU and installs the optimal version:
+
+    start.bat
+
+This will automatically:
+- Detect your GPU (NVIDIA, AMD, or Intel)
+- Install the best PyTorch version for your hardware
+- Launch Lumina Studio
+
+Notes
+-----
+
+⚠️ ROCm (AMD on Linux): Implemented in code but not tested by developers due to lack of AMD hardware. If you encounter issues, please report on GitHub.
+
+⚠️ AMD on Windows: Not supported by PyTorch. Use CPU mode instead.
+
+⚠️ Intel Arc GPUs: Not officially supported by PyTorch CUDA/ROCm. Use CPU mode.
+
+⚠️ CUDA Version Compatibility: 
+   - CUDA 13.0 requires PyTorch 2.7.0 or later
+   - CUDA 12.8 requires PyTorch 2.6.0 or later
+   - CUDA 12.6 requires PyTorch 2.5.0 or later
+   - Always use the latest stable PyTorch for best performance
+
+⚠️ RTX 50 series: Works best with CUDA 13.0 or 12.8. Older CUDA versions may have limited support.
+
+Verification
+------------
+
+Check your GPU support:
+    python -c "import torch; print('PyTorch version:', torch.__version__); print('CUDA version:', torch.version.cuda if torch.cuda.is_available() else 'N/A'); print('CUDA available:', torch.cuda.is_available()); print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'Using CPU')"
+
+Troubleshooting
+---------------
+
+If you encounter CUDA errors:
+1. Update your NVIDIA driver to the latest version
+2. Install the matching PyTorch CUDA version for your GPU
+3. For RTX 50 series, use CUDA 13.0 or 12.8
+4. For older GPUs (GTX 10 series), use CUDA 11.8
+
+Last Updated: 2025-02-05

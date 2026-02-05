@@ -288,10 +288,34 @@ cd Lumina-Layers
 
 ### Install dependencies
 
+**Option 1: Automatic Installation (Recommended)**
+
+For Windows users, simply run:
+```bash
+start.bat
+```
+
+This script will automatically detect your GPU and install the optimal PyTorch version.
+
+**Option 2: Manual Installation**
+
 **Core dependencies** (required):
 ```bash
 pip install -r requirements.txt
 ```
+
+**GPU Support (Optional but Recommended)**
+
+For NVIDIA GPU users, install PyTorch with CUDA support:
+
+| GPU Series | Recommended CUDA | Installation Command |
+|------------|------------------|---------------------|
+| RTX 50 series | CUDA 13.0 | `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130` |
+| RTX 40/30/20 series | CUDA 12.6 | `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126` |
+| GTX 10/16 series | CUDA 11.8 | `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118` |
+| No GPU / AMD / Intel | CPU | `pip install torch torchvision` |
+
+See [GPU_SUPPORT_LIST.txt](GPU_SUPPORT_LIST.txt) for detailed compatibility information.
 
 ---
 
