@@ -9,7 +9,7 @@ import cv2
 from PIL import Image
 from scipy.spatial import KDTree
 
-from config import PrinterConfig
+from config import PrinterConfig, ModelingMode
 
 # SVG support (optional dependency)
 try:
@@ -267,22 +267,7 @@ class LuminaImageProcessor:
                 - mode_info: Mode information dictionary
                 - debug_data: Debug data (high-fidelity mode only)
         """
-        # Normalize modeling mode
-        mode_str = str(modeling_mode).lower()
-        use_high_fidelity = "high-fidelity" in mode_str or "高保真" in mode_str
-        use_pixel = "pixel" in mode_str or "像素" in mode_str
-        
-        # Determine mode name
-        if use_high_fidelity:
-            mode_name = "High-Fidelity"
-        elif use_pixel:
-            mode_name = "Pixel Art"
-        else:
-            # Default to High-Fidelity if mode is unclear
-            mode_name = "High-Fidelity"
-            use_high_fidelity = True
-        
-        print(f"[IMAGE_PROCESSOR] Mode: {mode_name}")
+        print(f"[IMAGE_PROCESSOR] Mode: {modeling_mode.get_display_name()}")
         print(f"[IMAGE_PROCESSOR] Filter settings: blur_kernel={blur_kernel}, smooth_sigma={smooth_sigma}")
         
         # ========== Image Loading Logic Branch ==========
@@ -333,7 +318,7 @@ class LuminaImageProcessor:
                 print(f"[IMAGE_PROCESSOR] Transparent pixels (alpha<10): {np.sum(alpha_data < 10)}")
             
             # Calculate target resolution
-            if use_high_fidelity:
+            if modeling_mode == ModelingMode.HIGH_FIDELITY:
                 # High-precision mode: 10 pixels/mm
                 PIXELS_PER_MM = 10
                 target_w = int(target_width_mm * PIXELS_PER_MM)
@@ -371,7 +356,7 @@ class LuminaImageProcessor:
         
         # Color processing and matching
         debug_data = None
-        if use_high_fidelity:
+        if modeling_mode == ModelingMode.HIGH_FIDELITY:
             matched_rgb, material_matrix, bg_reference, debug_data = self._process_high_fidelity_mode(
                 rgb_arr, target_h, target_w, quantize_colors, blur_kernel, smooth_sigma
             )
@@ -398,9 +383,7 @@ class LuminaImageProcessor:
             'dimensions': (target_w, target_h),
             'pixel_scale': pixel_to_mm_scale,
             'mode_info': {
-                'name': mode_name,
-                'use_high_fidelity': use_high_fidelity,
-                'use_pixel': use_pixel
+                'mode': modeling_mode
             }
         }
         
