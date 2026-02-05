@@ -24,6 +24,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import cv2
 import trimesh
+from config import ModelingMode
 
 
 class BaseMesher(ABC):
@@ -301,31 +302,34 @@ class HighFidelityMesher(BaseMesher):
 
 # ========== Factory Method ==========
 
-def get_mesher(mode_name):
+def get_mesher(mode_name: ModelingMode):
     """
     Return corresponding Mesher instance based on mode name
     
     Args:
-        mode_name: Mode name string
-            - "high-fidelity" / "高保真" → HighFidelityMesher
-            - "pixel" / "像素" → VoxelMesher
+        mode_name: ModelingMode enum value
+            - ModelingMode.HIGH_FIDELITY → HighFidelityMesher
+            - ModelingMode.PIXEL → VoxelMesher
+            - ModelingMode.VECTOR → HighFidelityMesher (vector uses same algorithm)
     
     Returns:
         BaseMesher instance
     """
-    mode_str = str(mode_name).lower()
-    
     # High-Fidelity mode (replaces Vector and Woodblock)
-    if "high-fidelity" in mode_str or "高保真" in mode_str:
+    if mode_name == ModelingMode.HIGH_FIDELITY:
         print("[MESHER_FACTORY] Selected: HighFidelityMesher (RLE-based with Dilation)")
         return HighFidelityMesher()
     
+    # Vector mode uses same algorithm as High-Fidelity
+    if mode_name == ModelingMode.VECTOR:
+        print("[MESHER_FACTORY] Selected: HighFidelityMesher (Vector mode)")
+        return HighFidelityMesher()
+    
     # Pixel Art mode (legacy voxel)
-    elif "pixel" in mode_str or "像素" in mode_str:
+    if mode_name == ModelingMode.PIXEL:
         print("[MESHER_FACTORY] Selected: VoxelMesher (Blocky)")
         return VoxelMesher()
     
     # Default fallback to High-Fidelity
-    else:
-        print(f"[MESHER_FACTORY] Unknown mode '{mode_name}', defaulting to HighFidelityMesher")
-        return HighFidelityMesher()
+    print(f"[MESHER_FACTORY] Unknown mode '{mode_name}', defaulting to HighFidelityMesher")
+    return HighFidelityMesher()
