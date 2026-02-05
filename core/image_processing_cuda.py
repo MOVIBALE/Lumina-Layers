@@ -243,10 +243,22 @@ class LuminaImageProcessorCUDA:
             print(f"[IMAGE_PROCESSOR] Applying median blur (kernel={kernel_size})...")
             rgb_processed = cv2.medianBlur(rgb_processed, kernel_size)
         
+<<<<<<< HEAD
         # Step 3: Skip sharpening to prevent noise amplification
         # Sharpening creates high-contrast noise in flat color areas
         print(f"[IMAGE_PROCESSOR] Skipping sharpening to reduce noise...")
         rgb_sharpened = rgb_processed
+=======
+        # Step 3: Sharpening
+        sharpen_kernel = np.array([
+            [0, -0.5, 0],
+            [-0.5, 3, -0.5],
+            [0, -0.5, 0]
+        ])
+        print(f"[IMAGE_PROCESSOR] Applying subtle sharpening...")
+        rgb_sharpened = cv2.filter2D(rgb_processed, -1, sharpen_kernel)
+        rgb_sharpened = np.clip(rgb_sharpened, 0, 255).astype(np.uint8)
+>>>>>>> 6b061733e67e479f52677f5f2ec33e9674372b90
         
         # Step 4: K-Means quantization with CUDA if available
         print(f"[IMAGE_PROCESSOR] K-Means quantization to {quantize_colors} colors...")
@@ -330,6 +342,10 @@ class LuminaImageProcessorCUDA:
             'quantized_image': quantized_image.copy(),
             'num_colors': len(unique_colors),
             'bilateral_filtered': rgb_processed.copy(),
+<<<<<<< HEAD
+=======
+            'sharpened': rgb_sharpened.copy(),
+>>>>>>> 6b061733e67e479f52677f5f2ec33e9674372b90
             'filter_settings': {
                 'blur_kernel': blur_kernel,
                 'smooth_sigma': smooth_sigma

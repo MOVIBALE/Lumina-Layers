@@ -44,6 +44,7 @@ if errorlevel 1 (
 )
 
 if %HAS_GPU% == 1 (
+<<<<<<< HEAD
     REM Try to detect GPU architecture and install appropriate CUDA version
     echo [INFO] Detecting GPU architecture...
     
@@ -61,6 +62,14 @@ if %HAS_GPU% == 1 (
             echo [WARN] Failed to install latest CUDA. Trying CUDA 12.6...
             pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
         )
+=======
+    REM Check if PyTorch CUDA is already installed
+    python -c "import torch; exit(0 if 'cu' in torch.__version__ else 1)" 2>nul
+    if errorlevel 1 (
+        echo [INFO] Installing CUDA version of PyTorch...
+        pip uninstall torch torchvision torchaudio -y
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+>>>>>>> 6b061733e67e479f52677f5f2ec33e9674372b90
         if errorlevel 1 (
             echo [WARN] Failed to install CUDA version. Installing CPU version instead...
             pip install torch torchvision
@@ -68,6 +77,7 @@ if %HAS_GPU% == 1 (
             echo [OK] CUDA version installed!
         )
     ) else (
+<<<<<<< HEAD
         REM Check if PyTorch CUDA is already installed
         python -c "import torch; exit(0 if 'cu' in torch.__version__ else 1)" 2>nul
         if errorlevel 1 (
@@ -87,6 +97,9 @@ if %HAS_GPU% == 1 (
         ) else (
             echo [OK] CUDA version already installed.
         )
+=======
+        echo [OK] CUDA version already installed.
+>>>>>>> 6b061733e67e479f52677f5f2ec33e9674372b90
     )
 ) else (
     REM No GPU - ensure CPU version is installed
@@ -100,7 +113,11 @@ if %HAS_GPU% == 1 (
         python -c "import torch; exit(0 if 'cu' not in torch.__version__ else 1)" 2>nul
         if errorlevel 1 (
             echo [INFO] Converting from CUDA to CPU version for better compatibility...
+<<<<<<< HEAD
             pip uninstall torch torchvision torchaudio -y 2>nul
+=======
+            pip uninstall torch torchvision torchaudio -y
+>>>>>>> 6b061733e67e479f52677f5f2ec33e9674372b90
             pip install torch torchvision
             echo [OK] CPU version installed!
         ) else (

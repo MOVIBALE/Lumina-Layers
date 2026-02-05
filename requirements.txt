@@ -16,6 +16,7 @@ shapely>=2.0.0
 
 # PyTorch - Install separately based on your GPU:
 # 
+<<<<<<< HEAD
 # LATEST - NVIDIA RTX 50 series & All Modern GPUs (CUDA 13.0):
 # pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
 #
@@ -34,6 +35,17 @@ shapely>=2.0.0
 # For AMD GPUs - ROCm 6.3 (Linux only, for RX 6000/7000 series):
 # NOTE: ROCm support is implemented but NOT tested by developers (no AMD hardware available)
 # pip install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.3
+=======
+# For NVIDIA GPUs - CUDA 12.1 (Recommended for RTX 30/40 series):
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#
+# For NVIDIA GPUs - CUDA 11.8 (For older GPUs):
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+#
+# For AMD GPUs - ROCm 6.2 (Linux only, for RX 6000/7000 series):
+# NOTE: ROCm support is implemented but NOT tested by developers (no AMD hardware available)
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.2
+>>>>>>> 6b061733e67e479f52677f5f2ec33e9674372b90
 #
 # For CPU only (no GPU):
 # pip install torch torchvision
