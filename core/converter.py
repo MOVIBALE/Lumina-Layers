@@ -255,7 +255,7 @@ def _save_debug_preview(debug_data, material_matrix, mask_solid, image_path, mod
 def convert_image_to_3d(image_path, lut_path, target_width_mm, spacer_thick,
                          structure_mode, auto_bg, bg_tol, color_mode,
                          add_loop, loop_width, loop_length, loop_hole, loop_pos,
-                         modeling_mode="vector", quantize_colors=32,
+                         modeling_mode=ModelingMode.VECTOR, quantize_colors=32,
                          blur_kernel=0, smooth_sigma=10,
                          color_replacements=None):
     """
@@ -307,13 +307,13 @@ def convert_image_to_3d(image_path, lut_path, target_width_mm, spacer_thick,
         return None, None, None, "❌ Invalid LUT file format"
     
     print(f"[CONVERTER] Starting conversion...")
-    print(f"[CONVERTER] Mode: {modeling_mode}, Quantize: {quantize_colors}")
+    print(f"[CONVERTER] Mode: {modeling_mode.get_display_name()}, Quantize: {quantize_colors}")
     print(f"[CONVERTER] Filters: blur_kernel={blur_kernel}, smooth_sigma={smooth_sigma}")
     print(f"[CONVERTER] LUT: {actual_lut_path}")
     
     # ========== [UPDATED] Native Vector Mode Detection ==========
     # Check if user selected vector mode AND file is SVG
-    if modeling_mode == "vector_native" and image_path.lower().endswith('.svg'):
+    if modeling_mode == ModelingMode.VECTOR and image_path.lower().endswith('.svg'):
         print("[CONVERTER] 🎨 Using Native Vector Engine (Shapely/Clipper)...")
         
         try:
@@ -388,7 +388,7 @@ def convert_image_to_3d(image_path, lut_path, target_width_mm, spacer_thick,
             return None, None, None, error_msg
     
     # If vector mode selected but file is not SVG, show warning
-    if modeling_mode == "vector_native" and not image_path.lower().endswith('.svg'):
+    if modeling_mode == ModelingMode.VECTOR and not image_path.lower().endswith('.svg'):
         return None, None, None, (
             "⚠️ Vector Native mode requires SVG files!\n\n"
             "Your file is not an SVG. Please either:\n"
@@ -879,7 +879,9 @@ def generate_preview_cached(image_path, lut_path, target_width_mm,
         actual_lut_path = lut_path.name
     else:
         return None, None, "❌ Invalid LUT file format"
-    
+
+    modeling_mode = ModelingMode(modeling_mode)
+
     # Clamp quantize_colors to valid range
     quantize_colors = max(8, min(256, quantize_colors))
     
@@ -1092,7 +1094,7 @@ def on_remove_loop():
 def generate_final_model(image_path, lut_path, target_width_mm, spacer_thick,
                         structure_mode, auto_bg, bg_tol, color_mode,
                         add_loop, loop_width, loop_length, loop_hole, loop_pos,
-                        modeling_mode="vector", quantize_colors=64,
+                        modeling_mode=ModelingMode.VECTOR, quantize_colors=64,
                         color_replacements=None):
     """
     Wrapper function for generating final model.

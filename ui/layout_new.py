@@ -14,7 +14,7 @@ import gradio as gr
 from PIL import Image as PILImage
 
 from core.i18n import I18n
-from config import ColorSystem
+from config import ColorSystem, ModelingMode
 from utils import Stats, LUTManager
 from core.calibration import generate_calibration_board, generate_smart_board
 from core.extractor import (
@@ -353,59 +353,22 @@ def init_dims(img):
     default_h = round(default_w * (h_px / w_px), 1)
     return default_w, default_h
 
-
-# ---------- Mode mapping ----------
-
-def map_modeling_mode(mode_display_text):
-    """Map UI modeling mode label to internal mode identifier.
-
-    Args:
-        mode_display_text: Label from UI (e.g. "High-Fidelity", "Pixel", "Vector").
-
-    Returns:
-        str: One of "high-fidelity", "pixel", "vector_native".
-    """
-    mode_lower = (mode_display_text or "").lower()
-    if "vector" in mode_lower or "矢量" in mode_lower:
-        return "vector_native"
-    if "pixel" in mode_lower or "像素" in mode_lower:
-        return "pixel"
-    return "high-fidelity"
-
-
-def generate_final_model_with_mapping(image_path, lut_path, target_width_mm, spacer_thick,
-                                      structure_mode, auto_bg, bg_tol, color_mode,
-                                      add_loop, loop_width, loop_length, loop_hole, loop_pos,
-                                      modeling_mode_display, quantize_colors, color_replacements=None):
-    """Run final model generation with UI mode label mapped to internal mode.
-
-    Returns:
-        tuple: (out_path, glb_path, preview_img, status_msg) from generate_final_model.
-    """
-    modeling_mode = map_modeling_mode(modeling_mode_display)
-    return generate_final_model(
-        image_path, lut_path, target_width_mm, spacer_thick,
-        structure_mode, auto_bg, bg_tol, color_mode,
-        add_loop, loop_width, loop_length, loop_hole, loop_pos,
-        modeling_mode, quantize_colors, color_replacements
-    )
-
-
 def process_batch_generation(batch_files, is_batch, single_image, lut_path, target_width_mm,
                              spacer_thick, structure_mode, auto_bg, bg_tol, color_mode,
                              add_loop, loop_width, loop_length, loop_hole, loop_pos,
-                             modeling_mode_display, quantize_colors, color_replacements=None, progress=gr.Progress()):
+                             modeling_mode, quantize_colors, color_replacements=None, progress=gr.Progress()):
     """Dispatch to single-image or batch generation; batch writes a ZIP of 3MFs.
 
     Returns:
         tuple: (file_or_zip_path, model3d_value, preview_image, status_text).
     """
+    modeling_mode = ModelingMode(modeling_mode)
     args = (lut_path, target_width_mm, spacer_thick, structure_mode, auto_bg, bg_tol,
             color_mode, add_loop, loop_width, loop_length, loop_hole, loop_pos,
-            modeling_mode_display, quantize_colors, color_replacements)
+            modeling_mode, quantize_colors, color_replacements)
 
     if not is_batch:
-        return generate_final_model_with_mapping(single_image, *args)
+        return generate_final_model(single_image, *args)
 
     if not batch_files:
         return None, None, None, "❌ 请先上传图片 / Please upload images first"
@@ -428,7 +391,7 @@ def process_batch_generation(batch_files, is_batch, single_image, lut_path, targ
         logs.append(f"[{i+1}/{total_files}] 正在生成: {filename}")
 
         try:
-            result_3mf, _, _, _ = generate_final_model_with_mapping(path, *args)
+            result_3mf, _, _, _ = generate_final_model(path, *args)
 
             if result_3mf and os.path.exists(result_3mf):
                 new_name = os.path.splitext(filename)[0] + ".3mf"
@@ -629,9 +592,9 @@ def _get_all_component_updates(lang: str, components: dict) -> list:
                     label=I18n.get(choice_key, lang),
                     info=I18n.get('conv_modeling_mode_info', lang),
                     choices=[
-                        (I18n.get('conv_modeling_mode_hifi', lang), I18n.get('conv_modeling_mode_hifi', 'en')),
-                        (I18n.get('conv_modeling_mode_pixel', lang), I18n.get('conv_modeling_mode_pixel', 'en')),
-                        (I18n.get('conv_modeling_mode_vector', lang), I18n.get('conv_modeling_mode_vector', 'en'))
+                        (I18n.get('conv_modeling_mode_hifi', lang), ModelingMode.HIGH_FIDELITY),
+                        (I18n.get('conv_modeling_mode_pixel', lang), ModelingMode.PIXEL),
+                        (I18n.get('conv_modeling_mode_vector', lang),ModelingMode.VECTOR)
                     ]
                 ))
         elif key.startswith('slider_'):
@@ -900,11 +863,11 @@ def create_converter_tab_content(lang: str) -> dict:
             with gr.Row(elem_classes=["compact-row"]):
                 components['radio_conv_modeling_mode'] = gr.Radio(
                     choices=[
-                        (I18n.get('conv_modeling_mode_hifi', lang), I18n.get('conv_modeling_mode_hifi', 'en')),
-                        (I18n.get('conv_modeling_mode_pixel', lang), I18n.get('conv_modeling_mode_pixel', 'en')),
-                        (I18n.get('conv_modeling_mode_vector', lang), I18n.get('conv_modeling_mode_vector', 'en'))
+                        (I18n.get('conv_modeling_mode_hifi', lang), ModelingMode.HIGH_FIDELITY),
+                        (I18n.get('conv_modeling_mode_pixel', lang), ModelingMode.PIXEL),
+                        (I18n.get('conv_modeling_mode_vector', lang), ModelingMode.VECTOR)
                     ],
-                    value=I18n.get('conv_modeling_mode_hifi', 'en'),
+                    value=ModelingMode.HIGH_FIDELITY,
                     label=I18n.get('conv_modeling_mode', lang),
                     info=I18n.get('conv_modeling_mode_info', lang),
                     elem_classes=["vertical-radio"],
