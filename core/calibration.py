@@ -7,6 +7,7 @@ Generates calibration boards for physical color testing.
 import os
 from typing import Optional
 import itertools
+import zipfile
 
 import numpy as np
 import trimesh
@@ -407,3 +408,86 @@ def generate_smart_board(block_size_mm=5.0, gap_mm=0.8):
         Image.fromarray(preview_arr),
         f"✅ Smart 1296 (38x38边框版) 生成完毕 | 尺寸: {board_w:.1f}mm | 颜色: {', '.join(slot_names)}"
     )
+
+
+def generate_8color_board(page_index=0):
+    # 1. Load Data
+    try:
+        path = os.path.join("assets", "smart_8color_stacks.npy")
+        if not os.path.exists(path): path = os.path.join("..", "assets", "smart_8color_stacks.npy")
+        all_stacks = np.load(path)
+    except: return None, None, "❌ Data not found. Run analyze_colors.py first."
+
+    # 2. Slice Data (1369 per page for 37x37)
+    per_page = 1369
+    start = page_index * per_page
+    stacks = all_stacks[start : start + per_page]
+
+    # 3. Layout: 37x37 Data + 1 Padding = 39x39 Physical
+    data_dim, padding = 37, 1
+    total_dim = 39
+    
+    # Calculate Voxels
+    px_blk = max(1, int(5.0 / PrinterConfig.NOZZLE_WIDTH))
+    px_gap = max(1, int(0.8 / PrinterConfig.NOZZLE_WIDTH))
+    v_w = total_dim * (px_blk + px_gap)
+    
+    full_matrix = np.full((5 + int(PrinterConfig.BACKING_MM/0.08), v_w, v_w), 0, dtype=int)
+
+    # 4. Fill Data
+    for i, stack in enumerate(stacks):
+        r, c = (i // data_dim) + padding, (i % data_dim) + padding
+        py, px = r * (px_blk + px_gap), c * (px_blk + px_gap)
+        # Reverse stack for Face Down
+        for z, mid in enumerate(stack[::-1]):
+            full_matrix[z, py:py+px_blk, px:px+px_blk] = mid
+
+    # 5. Set Corner Markers (Crucial for Page ID)
+    # Page 1 TR = Cyan(1), Page 2 TR = Magenta(2)
+    page_mark = 1 if page_index == 0 else 2
+    
+    # 【修复】使用正确的 8色 ID: 5=Black, 4=Yellow
+    corners = [
+        (0, 0, 0),              # TL: White
+        (0, total_dim-1, page_mark),   # TR: Page ID
+        (total_dim-1, total_dim-1, 5), # BR: Black (Slot 5)
+        (total_dim-1, 0, 4)     # BL: Yellow (Slot 4)
+    ]
+    for r, c, mid in corners:
+        py, px = r * (px_blk + px_gap), c * (px_blk + px_gap)
+        for z in range(5): full_matrix[z, py:py+px_blk, px:px+px_blk] = mid
+
+    # 6. Export 3MF & Preview
+    scene = trimesh.Scene()
+    conf = ColorSystem.EIGHT_COLOR
+    for mid in range(8):
+        m = _generate_voxel_mesh(full_matrix, mid, v_w, v_w)
+        if m:
+            m.visual.face_colors = conf['preview'][mid]
+            m.metadata['name'] = conf['slots'][mid]
+            scene.add_geometry(m, geom_name=conf['slots'][mid])
+            
+    out_name = f"Lumina_8Color_Page{page_index+1}.3mf"
+    out_path = os.path.join(OUTPUT_DIR, out_name)
+    scene.export(out_path)
+    safe_fix_3mf_names(out_path, conf['slots'])
+    
+    # Simple preview generation
+    prev = np.zeros((v_w, v_w, 3), dtype=np.uint8)
+    for mid, col in conf['preview'].items(): prev[full_matrix[0]==mid] = col[:3]
+    return out_path, Image.fromarray(prev), "OK"
+
+def generate_8color_batch_zip():
+    """Generates both pages and zips them."""
+    f1, _, _ = generate_8color_board(0)
+    f2, _, _ = generate_8color_board(1)
+    
+    if not f1 or not f2: return None, None, "❌ Generation failed"
+    
+    zip_path = os.path.join(OUTPUT_DIR, "Lumina_8Color_Kit.zip")
+    with zipfile.ZipFile(zip_path, 'w') as zf:
+        zf.write(f1, os.path.basename(f1))
+        zf.write(f2, os.path.basename(f2))
+        
+    _, prev, _ = generate_8color_board(0) # Show Page 1 as preview
+    return zip_path, prev, "✅ 8-Color Kit (Page 1 & 2) Generated!"

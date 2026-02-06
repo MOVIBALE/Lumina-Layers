@@ -327,7 +327,8 @@ def convert_image_to_3d(image_path, lut_path, target_width_mm, spacer_thick,
                 svg_path=image_path,
                 target_width_mm=target_width_mm,
                 thickness_mm=spacer_thick,
-                structure_mode=structure_mode
+                structure_mode=structure_mode,
+                color_replacements=color_replacements
             )
             
             # 2. Export 3MF
@@ -355,14 +356,61 @@ def convert_image_to_3d(image_path, lut_path, target_width_mm, spacer_thick,
             preview_img = None
             if HAS_SVG_LIB:
                 try:
-                    drawing = svg2rlg(image_path)
-                    # Render high-res preview
-                    scale = target_width_mm / drawing.width * 5  # 5px/mm preview
-                    drawing.scale(scale, scale)
-                    drawing.width *= scale
-                    drawing.height *= scale
-                    pil_img = renderPM.drawToPIL(drawing, bg=0xffffff, configPIL={'transparent': True})
-                    preview_img = np.array(pil_img)
+                    # Use SVG-safe rasterization with bounds normalization
+                    preview_rgba = vec_processor.img_processor._load_svg(image_path, target_width_mm)
+
+                    # Apply color replacements to preview if provided
+                    if color_replacements:
+                        from core.color_replacement import ColorReplacementManager
+                        
+                        manager = ColorReplacementManager.from_dict(color_replacements)
+                        replacements = manager.get_all_replacements()
+                        
+                        if replacements:
+                            print(f"[CONVERTER] Applying {len(replacements)} color replacements to SVG preview...")
+                            
+                            # Extract RGB channels
+                            h, w = preview_rgba.shape[:2]
+                            rgb_data = preview_rgba[:, :, :3]
+                            alpha_data = preview_rgba[:, :, 3]
+                            
+                            # Process only non-transparent pixels
+                            mask_solid = alpha_data > 10
+                            
+                            # For each replacement, find all pixels close to the original color
+                            # and replace them with the new color
+                            for orig_color, repl_color in replacements.items():
+                                orig_arr = np.array(orig_color, dtype=np.uint8)
+                                repl_arr = np.array(repl_color, dtype=np.uint8)
+                                
+                                # Calculate color distance for all solid pixels
+                                # Use a generous threshold to handle anti-aliasing and color variations
+                                diff = np.abs(rgb_data.astype(int) - orig_arr.astype(int))
+                                distance = np.sum(diff, axis=2)
+                                
+                                # Match pixels within threshold (generous for SVG rasterization artifacts)
+                                threshold = 50  # Increased threshold for better matching
+                                match_mask = (distance < threshold) & mask_solid
+                                
+                                if np.any(match_mask):
+                                    rgb_data[match_mask] = repl_arr
+                                    matched_count = np.sum(match_mask)
+                                    print(f"[CONVERTER]   {orig_color} -> {repl_color}: {matched_count} pixels")
+                            
+                            # Update preview with replaced colors
+                            preview_rgba[:, :, :3] = rgb_data
+                            print(f"[CONVERTER] ✅ Color replacements applied to SVG preview")
+
+                    # Downscale overly large previews for UI performance
+                    max_preview_px = 1600
+                    h, w = preview_rgba.shape[:2]
+                    if w > max_preview_px:
+                        scale = max_preview_px / w
+                        new_w = max_preview_px
+                        new_h = max(1, int(h * scale))
+                        preview_rgba = cv2.resize(preview_rgba, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+                    preview_img = preview_rgba
                     print("[CONVERTER] ✅ Generated 2D vector preview")
                 except Exception as e:
                     print(f"[CONVERTER] Failed to render SVG preview: {e}")
@@ -939,8 +987,8 @@ def render_preview(preview_rgba, loop_pos, loop_width, loop_length,
     new_w, new_h = w * PREVIEW_SCALE, h * PREVIEW_SCALE
     
     margin = PREVIEW_MARGIN
-    canvas_w = new_w + margin
-    canvas_h = new_h + margin
+    canvas_w = new_w + margin + margin  # Left + right margins
+    canvas_h = new_h + margin + margin  # Top + bottom margins
     
     canvas = Image.new('RGBA', (canvas_w, canvas_h), (240, 240, 245, 255))
     draw = ImageDraw.Draw(canvas)
@@ -984,7 +1032,7 @@ def render_preview(preview_rgba, loop_pos, loop_width, loop_length,
     
     pil_img = Image.fromarray(preview_rgba, mode='RGBA')
     pil_img = pil_img.resize((new_w, new_h), Image.Resampling.NEAREST)
-    canvas.paste(pil_img, (margin, 0), pil_img)
+    canvas.paste(pil_img, (margin, margin), pil_img)  # Paste at (margin, margin) not (margin, 0)
     
     if loop_enabled and loop_pos is not None:
         canvas = _draw_loop_on_canvas(
@@ -1052,13 +1100,33 @@ def on_preview_click(cache, loop_pos, evt: gr.SelectData):
         return loop_pos, False, "Invalid click - please generate preview first"
     
     click_x, click_y = evt.index
-    click_x = click_x - PREVIEW_MARGIN
+    
+    # 获取图像尺寸
+    target_w = cache['target_w']
+    target_h = cache['target_h']
+    
+    # 计算canvas大小
+    canvas_w = target_w * PREVIEW_SCALE + PREVIEW_MARGIN + PREVIEW_MARGIN
+    canvas_h = target_h * PREVIEW_SCALE + PREVIEW_MARGIN + PREVIEW_MARGIN
+    
+    # 计算Gradio缩放比例（同时考虑宽度和高度）
+    gradio_display_height = 600
+    gradio_display_width = 900
+    scale_by_height = gradio_display_height / canvas_h
+    scale_by_width = gradio_display_width / canvas_w
+    gradio_scale = min(1.0, scale_by_height, scale_by_width)
+    
+    # 转换回canvas坐标
+    canvas_click_x = click_x / gradio_scale
+    canvas_click_y = click_y / gradio_scale
+    
+    # Remove margin offset - image starts at (margin, margin)
+    click_x = canvas_click_x - PREVIEW_MARGIN
+    click_y = canvas_click_y - PREVIEW_MARGIN
     
     orig_x = click_x / PREVIEW_SCALE
     orig_y = click_y / PREVIEW_SCALE
     
-    target_w = cache['target_w']
-    target_h = cache['target_h']
     orig_x = max(0, min(target_w - 1, orig_x))
     orig_y = max(0, min(target_h - 1, orig_y))
     
@@ -1121,7 +1189,8 @@ def generate_final_model(image_path, lut_path, target_width_mm, spacer_thick,
 def update_preview_with_replacements(cache, color_replacements: dict, 
                                      loop_pos=None, add_loop=False,
                                      loop_width=4, loop_length=8, 
-                                     loop_hole=2.5, loop_angle=0):
+                                     loop_hole=2.5, loop_angle=0,
+                                     lang: str = "zh"):
     """
     Update preview image with color replacements applied.
     
@@ -1188,7 +1257,7 @@ def update_preview_with_replacements(cache, color_replacements: dict,
     )
     
     # Generate palette HTML for display
-    palette_html = generate_palette_html(color_palette, color_replacements)
+    palette_html = generate_palette_html(color_palette, color_replacements, lang=lang)
     
     return display, updated_cache, palette_html
 
@@ -1367,3 +1436,203 @@ def clear_highlight_preview(cache, loop_pos=None, add_loop=False,
     print(f"[CLEAR_HIGHLIGHT] display shape: {display.shape if display is not None else None}")
     
     return display, "✅ 预览已恢复 | Preview restored"
+
+
+# [新增] 预览图点击吸取颜色并高亮
+def on_preview_click_select_color(cache, evt: gr.SelectData):
+    """
+    预览图点击事件处理：吸取颜色并高亮显示
+    1. 识别点击位置的颜色
+    2. 生成该颜色的高亮预览图
+    3. 返回颜色信息给 UI
+    """
+    if cache is None:
+        return None, "未选择", None, "❌ 请先生成预览"
+
+    if evt is None or evt.index is None:
+        return gr.update(), gr.update(), gr.update(), "⚠️ 无效点击"
+
+    # 1. 获取点击坐标（Gradio返回的是显示图像上的像素坐标）
+    display_click_x, display_click_y = evt.index
+    
+    # 2. 获取原始图像尺寸和canvas尺寸
+    target_w = cache.get('target_w')
+    target_h = cache.get('target_h')
+    
+    if target_w is None or target_h is None:
+        return gr.update(), gr.update(), gr.update(), "❌ 缓存数据不完整"
+    
+    # 3. 计算canvas的实际尺寸（包含margin和scale）
+    canvas_w = target_w * PREVIEW_SCALE + PREVIEW_MARGIN * 2
+    canvas_h = target_h * PREVIEW_SCALE + PREVIEW_MARGIN * 2
+    
+    # 4. Gradio Image组件设置了height=600，会自动缩放图像以适应显示
+    # 计算Gradio的缩放比例
+    gradio_display_height = 600  # 从ui/layout_new.py中的height参数
+    
+    # Gradio会保持宽高比缩放，取较小的缩放比例
+    gradio_scale = min(1.0, gradio_display_height / canvas_h)
+    
+    # 5. 将显示坐标转换回canvas坐标
+    canvas_click_x = display_click_x / gradio_scale
+    canvas_click_y = display_click_y / gradio_scale
+    
+    # 6. 移除margin得到缩放后图像上的坐标
+    scaled_img_x = canvas_click_x - PREVIEW_MARGIN
+    scaled_img_y = canvas_click_y - PREVIEW_MARGIN
+    
+    # 7. 除以PREVIEW_SCALE得到原始图像坐标
+    orig_x = int(scaled_img_x / PREVIEW_SCALE)
+    orig_y = int(scaled_img_y / PREVIEW_SCALE)
+
+    matched_rgb = cache.get('matched_rgb')
+    mask_solid = cache.get('mask_solid')
+    if matched_rgb is None or mask_solid is None:
+        return None, "未选择", None, "❌ 缓存无效"
+
+    h, w = matched_rgb.shape[:2]
+
+    # 检查坐标是否越界
+    if not (0 <= orig_x < w and 0 <= orig_y < h):
+        return gr.update(), gr.update(), gr.update(), f"⚠️ 点击了无效区域 ({orig_x}, {orig_y})"
+
+    # 检查是否点击了透明/背景区域
+    if not mask_solid[orig_y, orig_x]:
+        return gr.update(), gr.update(), gr.update(), "⚠️ 点击了背景区域"
+
+    # 2. 获取像素颜色
+    rgb = matched_rgb[orig_y, orig_x]
+    hex_color = f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+
+    print(f"[CLICK] Coords: ({orig_x}, {orig_y}), Color: {hex_color}")
+
+    # 3. 立即生成高亮预览（强制关闭挂孔显示）
+    display_img, status_msg = generate_highlight_preview(
+        cache,
+        highlight_color=hex_color,
+        add_loop=False
+    )
+
+    # 返回:
+    # 1. 更新后的预览图 (高亮模式)
+    # 2. "已选颜色"显示文本
+    # 3. "已选颜色"内部状态变量
+    # 4. 状态栏消息
+    if display_img is None:
+        return gr.update(), f"{hex_color} (点击处)", hex_color, status_msg
+    return display_img, f"{hex_color} (点击处)", hex_color, status_msg
+
+
+def generate_lut_grid_html(lut_path, lang: str = "zh"):
+    """
+    生成 LUT 可用颜色的 HTML 网格
+    """
+    from core.i18n import I18n
+    colors = extract_lut_available_colors(lut_path)
+
+    if not colors:
+        return f"<div style='color:orange'>LUT 文件无效或为空</div>"
+
+    count = len(colors)
+
+    html = f"""
+    <div class="lut-grid-container">
+        <div style="margin-bottom: 8px; font-size: 12px; color: #666;">
+            可用颜色: {count} 种
+        </div>
+        <div style="
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 5px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background: #f9f9f9;">
+    """
+
+    for entry in colors:
+        hex_val = entry['hex']
+        r, g, b = entry['color']
+        rgb_val = f"R:{r} G:{g} B:{b}"
+
+        html += f"""
+        <div class="lut-swatch lut-color-swatch"
+             data-color="{hex_val}"
+             style="background-color: {hex_val}; width:24px; height:24px; cursor:pointer; border:1px solid #ddd; border-radius:3px;"
+             title="{hex_val} ({rgb_val})">
+        </div>
+        """
+
+    html += "</div></div>"
+    return html
+
+
+# ========== Auto-detection Functions ==========
+
+def detect_lut_color_mode(lut_path):
+    """
+    自动检测LUT文件的颜色模式
+    
+    Args:
+        lut_path: LUT文件路径
+    
+    Returns:
+        str: 颜色模式 ("CMYW (Cyan/Magenta/Yellow)", "RYBW (Red/Yellow/Blue)", "6-Color (Smart 1296)")
+    """
+    if not lut_path or not os.path.exists(lut_path):
+        return None
+    
+    try:
+        lut_data = np.load(lut_path)
+        total_colors = lut_data.shape[0] * lut_data.shape[1] if lut_data.ndim >= 2 else len(lut_data)
+        
+        print(f"[AUTO_DETECT] LUT shape: {lut_data.shape}, total colors: {total_colors}")
+        
+        # 6色模式：1296色 (6^5 = 7776, 但实际选择1296)
+        if total_colors >= 1200 and total_colors <= 1400:
+            print(f"[AUTO_DETECT] Detected 6-Color mode (1296 colors)")
+            return "6-Color (Smart 1296)"
+        
+        # 4色模式：1024色 (4^5 = 1024)
+        elif total_colors >= 900 and total_colors <= 1100:
+            print(f"[AUTO_DETECT] Detected 4-Color mode (1024 colors) - keeping current selection")
+            return None  # 不自动切换4色模式，保持用户选择
+        
+        else:
+            print(f"[AUTO_DETECT] Unknown LUT format with {total_colors} colors")
+            return None
+            
+    except Exception as e:
+        print(f"[AUTO_DETECT] Error detecting LUT mode: {e}")
+        return None
+
+
+def detect_image_type(image_path):
+    """
+    自动检测图像类型并返回推荐的建模模式
+    
+    Args:
+        image_path: 图像文件路径
+    
+    Returns:
+        str: 建模模式 ("🎨 High-Fidelity (Smooth)", "📐 SVG Mode") 或 None
+    """
+    if not image_path:
+        return None
+    
+    try:
+        # 检查文件扩展名
+        ext = os.path.splitext(image_path)[1].lower()
+        
+        if ext == '.svg':
+            print(f"[AUTO_DETECT] SVG file detected, recommending SVG Mode")
+            return "📐 SVG Mode"
+        else:
+            print(f"[AUTO_DETECT] Raster image detected ({ext}), keeping current mode")
+            return None  # 不自动切换光栅图像模式
+            
+    except Exception as e:
+        print(f"[AUTO_DETECT] Error detecting image type: {e}")
+        return None

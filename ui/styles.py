@@ -60,10 +60,10 @@ CUSTOM_CSS = """
 
 /* Card Styling */
 .input-card, .output-card {
-    background: #fafafa;
+    background: var(--background-fill-primary, #fafafa);
     border-radius: 12px;
     padding: 15px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--border-color-primary, #e0e0e0);
 }
 
 /* Button Styling */
@@ -83,7 +83,7 @@ CUSTOM_CSS = """
 
 /* Mode indicator */
 .mode-indicator {
-    background: #f0f0ff;
+    background: var(--background-fill-secondary, #f0f0ff);
     border: 2px solid #667eea;
     border-radius: 8px;
     padding: 10px;
@@ -114,6 +114,28 @@ CUSTOM_CSS = """
     transform: translateY(0) !important;
 }
 
+#theme-btn {
+    background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%) !important;
+    color: white !important;
+    border: none !important;
+    padding: 6px 18px !important;
+    border-radius: 20px !important;
+    font-weight: bold !important;
+    font-size: 0.9em !important;
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3) !important;
+    transition: all 0.3s ease !important;
+    cursor: pointer !important;
+}
+
+#theme-btn:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.5) !important;
+}
+
+#theme-btn:active {
+    transform: translateY(0) !important;
+}
+
 /* Footer */
 .footer {
     text-align: center;
@@ -140,7 +162,7 @@ CUSTOM_CSS = """
     align-items: center !important;
     padding: 8px 12px !important;
     border-radius: 6px !important;
-    background: #f8f8f8 !important;
+    background: var(--background-fill-secondary, #f8f8f8) !important;
     transition: all 0.2s ease !important;
 }
 

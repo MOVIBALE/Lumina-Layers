@@ -64,7 +64,14 @@ def draw_corner_points(img, points, color_mode: str):
     color_conf = ColorSystem.get(color_mode)
     labels = color_conf['corner_labels']
 
-    if "6-Color" in color_mode:
+    if "8-Color" in color_mode:
+        draw_colors = [
+            (255, 255, 255),  # White (TL)
+            (255, 255, 0),    # Cyan/Magenta (TR)
+            (0, 0, 0),        # Black (BR)
+            (0, 255, 255)     # Yellow (BL)
+        ]
+    elif "6-Color" in color_mode:
         draw_colors = [
             (255, 255, 255),  # White
             (214, 134, 0),    # Cyan (BGR)
@@ -154,7 +161,11 @@ def run_extraction(img, points, offset_x, offset_y, zoom, barrel, wb, bright, co
         return None, None, None, "❌ 请点击4个角点"
     
     # 动态确定网格大小
-    if "6-Color" in color_mode:
+    if "8-Color" in color_mode:
+        grid_size = 37          # Data: 37x37 (1369色)
+        physical_grid = 39      # Physical: 39x39
+        total_cells = 1369
+    elif "6-Color" in color_mode:
         grid_size = 36          # 核心数据还是 36x36 (1296色)
         physical_grid = 38      # 物理上有 38x38 (含边框)
         total_cells = 1296
@@ -221,13 +232,19 @@ def run_extraction(img, points, offset_x, offset_y, zoom, barrel, wb, bright, co
     return vis, prev, LUT_FILE_PATH, f"✅ 提取完成！({grid_size}x{grid_size}, {total_cells}色) LUT已保存"
 
 
-def probe_lut_cell(evt: gr.SelectData):
+def probe_lut_cell(lut_path, evt: gr.SelectData):
     """Probe a specific cell in the LUT for manual inspection."""
-    if not os.path.exists(LUT_FILE_PATH):
+    actual_path = LUT_FILE_PATH
+    if isinstance(lut_path, str) and lut_path:
+        actual_path = lut_path
+    elif hasattr(lut_path, "name"):
+        actual_path = lut_path.name
+
+    if not actual_path or not os.path.exists(actual_path):
         return "⚠️ 无数据", None, None
     try:
-        lut = np.load(LUT_FILE_PATH)
-    except:
+        lut = np.load(actual_path)
+    except Exception:
         return "⚠️ 数据损坏", None, None
 
     x, y = evt.index
@@ -249,13 +266,19 @@ def probe_lut_cell(evt: gr.SelectData):
     return html, hex_c, (r, c)
 
 
-def manual_fix_cell(coord, color_input):
+def manual_fix_cell(coord, color_input, lut_path=None):
     """Manually fix a specific cell color in the LUT."""
-    if not coord or not os.path.exists(LUT_FILE_PATH):
+    actual_path = LUT_FILE_PATH
+    if isinstance(lut_path, str) and lut_path:
+        actual_path = lut_path
+    elif hasattr(lut_path, "name"):
+        actual_path = lut_path.name
+
+    if not coord or not actual_path or not os.path.exists(actual_path):
         return None, "⚠️ 错误"
 
     try:
-        lut = np.load(LUT_FILE_PATH)
+        lut = np.load(actual_path)
         r, c = coord
         new_color = [0, 0, 0]
 
@@ -272,7 +295,7 @@ def manual_fix_cell(coord, color_input):
             new_color = [int(color_str[i:i+2], 16) for i in (0, 2, 4)]
 
         lut[r, c] = new_color
-        np.save(LUT_FILE_PATH, lut)
+        np.save(actual_path, lut)
         return cv2.resize(lut, (512, 512), interpolation=cv2.INTER_NEAREST), "✅ 已修正"
     except Exception as e:
         return None, f"❌ 格式错误: {color_input}"

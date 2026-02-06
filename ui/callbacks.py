@@ -3,9 +3,12 @@ Lumina Studio - UI Callbacks
 UI event handling callback functions
 """
 
+import os
+import numpy as np
 import gradio as gr
 
-from config import ColorSystem
+from config import ColorSystem, LUT_FILE_PATH
+from core.i18n import I18n
 from core.extractor import generate_simulated_reference
 from utils import LUTManager
 
@@ -52,7 +55,7 @@ def get_first_hint(mode):
     """Get first corner point hint based on mode"""
     conf = ColorSystem.get(mode)
     label_zh = conf['corner_labels'][0]
-    label_en = conf['corner_labels_en'][0]
+    label_en = conf.get('corner_labels_en', conf['corner_labels'])[0]
     return f"#### 👉 点击 Click: **{label_zh} / {label_en}**"
 
 
@@ -62,7 +65,7 @@ def get_next_hint(mode, pts_count):
     if pts_count >= 4:
         return "#### ✅ Positioning complete! Ready to extract!"
     label_zh = conf['corner_labels'][pts_count]
-    label_en = conf['corner_labels_en'][pts_count]
+    label_en = conf.get('corner_labels_en', conf['corner_labels'])[pts_count]
     return f"#### 👉 点击 Click: **{label_zh} / {label_en}**"
 
 
@@ -108,7 +111,7 @@ def on_extractor_clear(img, mode):
 # Color Replacement Callbacks
 # ═══════════════════════════════════════════════════════════════
 
-def on_palette_color_select(palette_html, evt: gr.SelectData):
+def on_palette_color_select(palette_html, evt: gr.SelectData, lang: str = "zh"):
     """
     Handle palette color selection from HTML display.
     
@@ -125,12 +128,13 @@ def on_palette_color_select(palette_html, evt: gr.SelectData):
     """
     # In practice, color selection would be handled differently
     # since Gradio HTML doesn't support click events
-    return None, "点击调色板选择颜色 | Click palette to select"
+    return None, I18n.get('palette_click_to_select', lang)
 
 
-def on_apply_color_replacement(cache, selected_color, replacement_color, 
+def on_apply_color_replacement(cache, selected_color, replacement_color,
                                replacement_map, replacement_history, loop_pos, add_loop,
-                               loop_width, loop_length, loop_hole, loop_angle):
+                               loop_width, loop_length, loop_hole, loop_angle,
+                               lang: str = "zh"):
     """
     Apply a color replacement to the preview.
     
@@ -154,10 +158,13 @@ def on_apply_color_replacement(cache, selected_color, replacement_color,
     from core.converter import update_preview_with_replacements, generate_palette_html
     
     if cache is None:
-        return None, None, "", replacement_map, replacement_history, "❌ 请先生成预览 | Generate preview first"
+        return None, None, "", replacement_map, replacement_history, I18n.get('palette_need_preview', lang)
     
     if not selected_color:
-        return None, cache, "", replacement_map, replacement_history, "❌ 请先选择要替换的颜色 | Select a color first"
+        return gr.update(), cache, gr.update(), replacement_map, replacement_history, I18n.get('palette_need_original', lang)
+
+    if not replacement_color:
+        return gr.update(), cache, gr.update(), replacement_map, replacement_history, I18n.get('palette_need_replacement', lang)
     
     # Save current state to history before applying new replacement
     new_history = replacement_history.copy() if replacement_history else []
@@ -170,15 +177,18 @@ def on_apply_color_replacement(cache, selected_color, replacement_color,
     # Apply replacements and update preview
     display, updated_cache, palette_html = update_preview_with_replacements(
         cache, new_map, loop_pos, add_loop,
-        loop_width, loop_length, loop_hole, loop_angle
+        loop_width, loop_length, loop_hole, loop_angle,
+        lang=lang
     )
     
-    return display, updated_cache, palette_html, new_map, new_history, f"✅ 已替换 {selected_color} → {replacement_color}"
+    status_msg = I18n.get('palette_replaced', lang).format(src=selected_color, dst=replacement_color)
+    return display, updated_cache, palette_html, new_map, new_history, status_msg
 
 
 def on_clear_color_replacements(cache, replacement_map, replacement_history,
                                 loop_pos, add_loop,
-                                loop_width, loop_length, loop_hole, loop_angle):
+                                loop_width, loop_length, loop_hole, loop_angle,
+                                lang: str = "zh"):
     """
     Clear all color replacements and restore original preview.
     
@@ -200,7 +210,7 @@ def on_clear_color_replacements(cache, replacement_map, replacement_history,
     from core.converter import update_preview_with_replacements, generate_palette_html
     
     if cache is None:
-        return None, None, "", {}, [], "❌ 请先生成预览 | Generate preview first"
+        return None, None, "", {}, [], I18n.get('palette_need_preview', lang)
     
     # Save current state to history before clearing
     new_history = replacement_history.copy() if replacement_history else []
@@ -210,13 +220,14 @@ def on_clear_color_replacements(cache, replacement_map, replacement_history,
     # Clear replacements by passing empty dict
     display, updated_cache, palette_html = update_preview_with_replacements(
         cache, {}, loop_pos, add_loop,
-        loop_width, loop_length, loop_hole, loop_angle
+        loop_width, loop_length, loop_hole, loop_angle,
+        lang=lang
     )
     
-    return display, updated_cache, palette_html, {}, new_history, "✅ 已清除所有颜色替换 | All replacements cleared"
+    return display, updated_cache, palette_html, {}, new_history, I18n.get('palette_cleared', lang)
 
 
-def on_preview_generated_update_palette(cache):
+def on_preview_generated_update_palette(cache, lang: str = "zh"):
     """
     Update palette display after preview is generated.
     
@@ -229,13 +240,14 @@ def on_preview_generated_update_palette(cache):
     from core.converter import generate_palette_html
     
     if cache is None:
+        placeholder = I18n.get('conv_palette_replacements_placeholder', lang)
         return (
-            "<p style='color:#888;'>生成预览后显示调色板 | Generate preview to see palette</p>",
+            f"<p style='color:#888;'>{placeholder}</p>",
             None  # selected_color state
         )
     
     palette = cache.get('color_palette', [])
-    palette_html = generate_palette_html(palette, {}, None)
+    palette_html = generate_palette_html(palette, {}, None, lang=lang)
     
     return (
         palette_html,
@@ -450,8 +462,8 @@ def on_clear_highlight(cache, loop_pos, add_loop,
 # ═══════════════════════════════════════════════════════════════
 
 def on_undo_color_replacement(cache, replacement_map, replacement_history,
-                               loop_pos, add_loop, loop_width, loop_length, 
-                               loop_hole, loop_angle):
+                               loop_pos, add_loop, loop_width, loop_length,
+                               loop_hole, loop_angle, lang: str = "zh"):
     """
     Undo the last color replacement operation.
     
@@ -473,10 +485,10 @@ def on_undo_color_replacement(cache, replacement_map, replacement_history,
     from core.converter import update_preview_with_replacements, generate_palette_html
     
     if cache is None:
-        return None, None, "", replacement_map, replacement_history, "❌ 请先生成预览 | Generate preview first"
+        return None, None, "", replacement_map, replacement_history, I18n.get('palette_need_preview', lang)
     
     if not replacement_history:
-        return None, cache, "", replacement_map, replacement_history, "❌ 没有可撤销的操作 | Nothing to undo"
+        return None, cache, "", replacement_map, replacement_history, I18n.get('palette_undo_empty', lang)
     
     # Pop the last state from history
     new_history = replacement_history.copy()
@@ -485,7 +497,49 @@ def on_undo_color_replacement(cache, replacement_map, replacement_history,
     # Apply the previous replacement map
     display, updated_cache, palette_html = update_preview_with_replacements(
         cache, previous_map, loop_pos, add_loop,
-        loop_width, loop_length, loop_hole, loop_angle
+        loop_width, loop_length, loop_hole, loop_angle,
+        lang=lang
     )
     
-    return display, updated_cache, palette_html, previous_map, new_history, "↩️ 已撤销 | Undone"
+    return display, updated_cache, palette_html, previous_map, new_history, I18n.get('palette_undone', lang)
+
+def run_extraction_wrapper(img, points, offset_x, offset_y, zoom, barrel, wb, bright, color_mode, page_choice):
+    """Wrapper for extraction: supports 8-Color page saving."""
+    from core.extractor import run_extraction
+    
+    run_mode = color_mode
+    
+    vis, prev, lut_path, status = run_extraction(
+        img, points, offset_x, offset_y, zoom, barrel, wb, bright, run_mode
+    )
+    
+    if "8-Color" in color_mode and lut_path:
+        os.makedirs("assets", exist_ok=True)
+        page_idx = 1 if "1" in str(page_choice) else 2
+        temp_path = os.path.join("assets", f"temp_8c_page_{page_idx}.npy")
+        try:
+            lut = np.load(lut_path)
+            np.save(temp_path, lut)
+            lut_path = temp_path
+        except Exception:
+            pass
+    
+    return vis, prev, lut_path, status
+
+
+def merge_8color_data():
+    """Concatenate two 8-color pages and save to LUT_FILE_PATH."""
+    path1 = os.path.join("assets", "temp_8c_page_1.npy")
+    path2 = os.path.join("assets", "temp_8c_page_2.npy")
+    
+    if not os.path.exists(path1) or not os.path.exists(path2):
+        return None, "❌ Missing temp pages. Please extract Page 1 and Page 2 first."
+    
+    try:
+        lut1 = np.load(path1)
+        lut2 = np.load(path2)
+        merged = np.concatenate([lut1, lut2], axis=0)
+        np.save(LUT_FILE_PATH, merged)
+        return LUT_FILE_PATH, "✅ 8-Color LUT merged and saved!"
+    except Exception as e:
+        return None, f"❌ Merge failed: {e}"

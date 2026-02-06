@@ -9,8 +9,10 @@ Click handlers are defined globally in crop_extension.py to survive Gradio re-re
 
 from typing import List
 
+from core.i18n import I18n
 
-def generate_palette_html(palette: List[dict], replacements: dict = None, selected_color: str = None) -> str:
+
+def generate_palette_html(palette: List[dict], replacements: dict = None, selected_color: str = None, lang: str = "zh") -> str:
     """
     Generate HTML display for color palette with clickable swatches.
     Text and percentage are displayed BELOW the color swatches.
@@ -26,7 +28,7 @@ def generate_palette_html(palette: List[dict], replacements: dict = None, select
         HTML string for displaying the palette with click-to-select functionality
     """
     if not palette:
-        return "<p style='color:#888;'>No colors extracted yet. Generate preview first.</p>"
+        return f"<p style='color:#888;'>{I18n.get('palette_empty', lang)}</p>"
     
     replacements = replacements or {}
     
@@ -34,9 +36,11 @@ def generate_palette_html(palette: List[dict], replacements: dict = None, select
     # The script tags here are kept for reference but won't execute via innerHTML
     
     # Show total color count with highlight hint
+    count_text = I18n.get('palette_count', lang).format(count=len(palette))
+    hint_text = I18n.get('palette_hint', lang)
     html_parts = [
-        f'<p style="color:#666; margin:4px 8px;">共 {len(palette)} 种颜色 | {len(palette)} colors in image</p>',
-        '<p style="color:#888; margin:2px 8px; font-size:11px;">💡 点击色块高亮预览 | Click to highlight in preview</p>',
+        f'<p style="color:#666; margin:4px 8px;">{count_text}</p>',
+        f'<p style="color:#888; margin:2px 8px; font-size:11px;">💡 {hint_text}</p>',
         '<div id="palette-grid-container" style="display:flex; flex-wrap:wrap; gap:8px; padding:8px; max-height:400px; overflow-y:auto;">'
     ]
     
@@ -56,9 +60,10 @@ def generate_palette_html(palette: List[dict], replacements: dict = None, select
         
         # Container with flex-direction:column to put text BELOW swatch
         # No onclick - handled by event delegation
+        tooltip = I18n.get('palette_tooltip', lang).format(hex=hex_color, pct=percentage)
         html_parts.append(f'''
         <div class="palette-swatch-container" style="display:flex; flex-direction:column; align-items:center; gap:4px;">
-            <div class="palette-swatch" style="width:50px; height:50px; background:{hex_color}; border:{border_style}; border-radius:8px; cursor:pointer; transition: all 0.2s ease; {outline_style}" data-color="{hex_color}" title="点击高亮 Click to highlight: {hex_color} ({percentage}%)"></div>
+            <div class="palette-swatch" style="width:50px; height:50px; background:{hex_color}; border:{border_style}; border-radius:8px; cursor:pointer; transition: all 0.2s ease; {outline_style}" data-color="{hex_color}" title="{tooltip}"></div>
             <div style="text-align:center; font-size:10px; color:#333;">
                 <div style="font-weight:bold;">{percentage}%</div>
                 <div style="font-size:8px; color:#666;">{hex_color}</div>
@@ -68,9 +73,10 @@ def generate_palette_html(palette: List[dict], replacements: dict = None, select
         
         # Show replacement indicator if exists
         if replacement_hex:
+            replacement_title = I18n.get('palette_replaced_with', lang).format(hex=replacement_hex)
             html_parts.append(f'''
             <div style="width:20px; height:60px; display:flex; align-items:center; font-size:16px; color:#666;">→</div>
-            <div style="width:40px; height:40px; background:{replacement_hex}; border:2px solid #4CAF50; border-radius:8px;" title="Replaced with {replacement_hex}"></div>
+            <div style="width:40px; height:40px; background:{replacement_hex}; border:2px solid #4CAF50; border-radius:8px;" title="{replacement_title}"></div>
             ''')
     
     html_parts.append('</div>')
@@ -79,7 +85,7 @@ def generate_palette_html(palette: List[dict], replacements: dict = None, select
     return ''.join(html_parts)
 
 
-def generate_lut_color_grid_html(colors: List[dict], selected_color: str = None, used_colors: set = None) -> str:
+def generate_lut_color_grid_html(colors: List[dict], selected_color: str = None, used_colors: set = None, lang: str = "zh") -> str:
     """
     Generate HTML for displaying LUT available colors as a clickable visual grid.
     Text is displayed BELOW the color swatches.
@@ -95,7 +101,7 @@ def generate_lut_color_grid_html(colors: List[dict], selected_color: str = None,
         HTML string showing available colors as a clickable grid with search
     """
     if not colors:
-        return "<p style='color:#888;'>加载 LUT 后显示可用颜色 | Load LUT to see available colors</p>"
+        return f"<p style='color:#888;'>{I18n.get('lut_grid_load_hint', lang)}</p>"
     
     used_colors = used_colors or set()
     used_colors_lower = {c.lower() for c in used_colors}
@@ -114,13 +120,16 @@ def generate_lut_color_grid_html(colors: List[dict], selected_color: str = None,
     # Note: Click handlers are now global in crop_extension.py
     # Only keep the search filter function which uses oninput attribute
     
+    count_text = I18n.get('lut_grid_count', lang).format(count=len(colors))
+    search_placeholder = I18n.get('lut_grid_search_placeholder', lang)
+    search_clear = I18n.get('lut_grid_search_clear', lang)
     html_parts = [
-        f'<p style="color:#666; font-size:12px; margin-bottom:8px;">共 <span id="lut-color-visible-count">{len(colors)}</span> 种可用颜色 | {len(colors)} available colors</p>',
+        f'<p style="color:#666; font-size:12px; margin-bottom:8px;">{count_text}: <span id="lut-color-visible-count">{len(colors)}</span></p>',
         # Search box with inline filter function
-        '''
+        f'''
         <div style="margin-bottom:12px; display:flex; align-items:center; gap:8px;">
             <span style="font-size:12px; color:#666;">🔍</span>
-            <input type="text" id="lut-color-search" placeholder="搜索色号 Search hex (e.g. ff0000)" 
+            <input type="text" id="lut-color-search" placeholder="{search_placeholder}" 
                    style="flex:1; padding:8px 12px; border:1px solid #ddd; border-radius:6px; font-size:12px; outline:none; transition: border-color 0.2s;"
                    oninput="window.filterLutColors && window.filterLutColors(this.value)"
                    onfocus="this.style.borderColor='#2196F3'"
@@ -128,7 +137,7 @@ def generate_lut_color_grid_html(colors: List[dict], selected_color: str = None,
             <button onclick="document.getElementById('lut-color-search').value=''; window.filterLutColors && window.filterLutColors('');" 
                     style="padding:6px 12px; border:1px solid #ddd; border-radius:6px; background:#f5f5f5; cursor:pointer; font-size:11px; transition: background 0.2s;"
                     onmouseover="this.style.background='#e0e0e0'"
-                    onmouseout="this.style.background='#f5f5f5'">清除</button>
+                    onmouseout="this.style.background='#f5f5f5'">{search_clear}</button>
         </div>
         ''',
         '<div id="lut-color-grid-container" style="max-height:400px; overflow-y:auto; padding:4px;">'
@@ -149,9 +158,10 @@ def generate_lut_color_grid_html(colors: List[dict], selected_color: str = None,
             outline_style = "outline: 3px solid #2196F3; outline-offset: 2px;" if is_selected else ""
             
             # Container with text BELOW swatch - no onclick, handled by event delegation
+            tooltip = I18n.get('lut_grid_tooltip', lang).format(hex=hex_color)
             parts.append(f'''
             <div class="lut-color-swatch-container" style="display:flex; flex-direction:column; align-items:center; gap:4px;">
-                <div class="lut-color-swatch" style="width:50px; height:50px; background:{hex_color}; border:1px solid #ccc; border-radius:8px; cursor:pointer; transition: all 0.2s ease; {outline_style}" data-color="{hex_color}" title="点击选择 Click to select: {hex_color}"></div>
+                <div class="lut-color-swatch" style="width:50px; height:50px; background:{hex_color}; border:1px solid #ccc; border-radius:8px; cursor:pointer; transition: all 0.2s ease; {outline_style}" data-color="{hex_color}" title="{tooltip}"></div>
                 <div style="text-align:center; font-size:9px; color:#666;">{hex_color}</div>
             </div>
             ''')
@@ -161,15 +171,18 @@ def generate_lut_color_grid_html(colors: List[dict], selected_color: str = None,
     
     # Render used colors section (if any)
     if used_in_image:
+        section_title = I18n.get('lut_grid_used', lang).format(count=len(used_in_image))
         html_parts.extend(render_color_grid(
-            used_in_image, 
-            f"📌 图中已使用 Used in image ({len(used_in_image)})", 
+            used_in_image,
+            section_title,
             "#4CAF50"
         ))
     
     # Render unused colors section
     if not_used:
-        section_title = f"🎨 其他可用颜色 Other colors ({len(not_used)})" if used_in_image else None
+        section_title = None
+        if used_in_image:
+            section_title = I18n.get('lut_grid_other', lang).format(count=len(not_used))
         html_parts.extend(render_color_grid(not_used, section_title, "#888"))
     
     html_parts.append('</div>')

@@ -249,8 +249,60 @@ class I18n:
             'en': '👁️ Generate Preview'
         },
         'conv_preview_section': {
-            'zh': '#### 🎨 2D预览 - 点击图片放置挂孔位置（暂不推荐使用）',
-            'en': '#### 🎨 2D Preview - Click to place loop (Not recommended)'
+            'zh': '#### 🎨 2D预览',
+            'en': '#### 🎨 2D Preview'
+        },
+        'conv_palette': {
+            'zh': '🎨 颜色调色板',
+            'en': '🎨 Color Palette'
+        },
+        'conv_palette_step1': {
+            'zh': '### 1. 原图颜色（点击预览图）',
+            'en': '### 1. Original Color (Click Preview)'
+        },
+        'conv_palette_step2': {
+            'zh': '### 2. 替换为（点击色块）',
+            'en': '### 2. Replace With (Click Swatch)'
+        },
+        'conv_palette_selected_label': {
+            'zh': '当前选中',
+            'en': 'Selected'
+        },
+        'conv_palette_replace_label': {
+            'zh': '将替换为',
+            'en': 'Replace With'
+        },
+        'conv_palette_lut_loading': {
+            'zh': '⏳ 正在加载 LUT 颜色...',
+            'en': '⏳ Loading LUT colors...'
+        },
+        'conv_palette_replacements_placeholder': {
+            'zh': '生成预览后显示替换列表',
+            'en': 'Generate preview to see replacements'
+        },
+        'conv_palette_replacements_label': {
+            'zh': '已生效的替换',
+            'en': 'Applied Replacements'
+        },
+        'conv_palette_apply_btn': {
+            'zh': '✅ 确认替换',
+            'en': '✅ Apply'
+        },
+        'conv_palette_undo_btn': {
+            'zh': '↩️ 撤销',
+            'en': '↩️ Undo'
+        },
+        'conv_palette_clear_btn': {
+            'zh': '🗑️ 清除所有',
+            'en': '🗑️ Clear'
+        },
+        'lut_grid_invalid': {
+            'zh': '⚠️ 请先选择一个有效的 LUT 文件',
+            'en': '⚠️ Please select a valid LUT file'
+        },
+        'lut_grid_header': {
+            'zh': '🎨 当前 LUT 包含 <b>{count}</b> 种可打印颜色（点击选择）',
+            'en': '🎨 Current LUT contains <b>{count}</b> printable colors (click to select)'
         },
         'conv_loop_section': {
             'zh': '##### 🔗 挂孔设置',
@@ -499,6 +551,123 @@ class I18n:
         'msg_preview_simplified': {
             'zh': 'ℹ️ 3D预览已简化',
             'en': 'ℹ️ 3D preview simplified'
+        },
+
+        # ==================== Palette / Replacement ====================
+        'palette_empty': {
+            'zh': '暂无颜色，请先生成预览。',
+            'en': 'No colors yet. Generate a preview first.'
+        },
+        'palette_count': {
+            'zh': '共 {count} 种颜色',
+            'en': '{count} colors in image'
+        },
+        'palette_hint': {
+            'zh': '点击色块高亮预览',
+            'en': 'Click swatch to highlight in preview'
+        },
+        'palette_tooltip': {
+            'zh': '点击高亮: {hex} ({pct}%)',
+            'en': 'Click to highlight: {hex} ({pct}%)'
+        },
+        'palette_replaced_with': {
+            'zh': '替换为 {hex}',
+            'en': 'Replaced with {hex}'
+        },
+        'palette_click_to_select': {
+            'zh': '点击调色板选择颜色',
+            'en': 'Click palette to select'
+        },
+        'palette_need_preview': {
+            'zh': '❌ 请先生成预览',
+            'en': '❌ Please generate preview first'
+        },
+        'palette_need_original': {
+            'zh': '❌ 请先选择要替换的颜色',
+            'en': '❌ Select a color to replace'
+        },
+        'palette_need_replacement': {
+            'zh': '❌ 请先选择替换颜色',
+            'en': '❌ Select a replacement color'
+        },
+        'palette_replaced': {
+            'zh': '✅ 已替换 {src} → {dst}',
+            'en': '✅ Replaced {src} → {dst}'
+        },
+        'palette_cleared': {
+            'zh': '✅ 已清除所有颜色替换',
+            'en': '✅ Cleared all replacements'
+        },
+        'palette_undo_empty': {
+            'zh': '❌ 没有可撤销的操作',
+            'en': '❌ Nothing to undo'
+        },
+        'palette_undone': {
+            'zh': '↩️ 已撤销',
+            'en': '↩️ Undone'
+        },
+        'lut_grid_load_hint': {
+            'zh': '加载 LUT 后显示可用颜色',
+            'en': 'Load LUT to see available colors'
+        },
+        'lut_grid_count': {
+            'zh': '共 {count} 种可用颜色',
+            'en': '{count} available colors'
+        },
+        'lut_grid_search_placeholder': {
+            'zh': '搜索色号 (如 ff0000)',
+            'en': 'Search hex (e.g. ff0000)'
+        },
+        'lut_grid_search_clear': {
+            'zh': '清除',
+            'en': 'Clear'
+        },
+        'lut_grid_used': {
+            'zh': '图中已使用 ({count})',
+            'en': 'Used in image ({count})'
+        },
+        'lut_grid_other': {
+            'zh': '其他可用颜色 ({count})',
+            'en': 'Other colors ({count})'
+        },
+        'lut_grid_tooltip': {
+            'zh': '点击选择: {hex}',
+            'en': 'Click to select: {hex}'
+        },
+
+        # ==================== Settings ====================
+        'settings_title': {
+            'zh': '## ⚙️ 设置',
+            'en': '## ⚙️ Settings'
+        },
+        'settings_clear_cache': {
+            'zh': '🗑️ 清空缓存',
+            'en': '🗑️ Clear Cache'
+        },
+        'settings_reset_counters': {
+            'zh': '🔢 使用计数归零',
+            'en': '🔢 Reset Counters'
+        },
+        'settings_cache_cleared': {
+            'zh': '✅ 缓存已清空，释放了 {} 空间',
+            'en': '✅ Cache cleared, freed {} of space'
+        },
+        'settings_counters_reset': {
+            'zh': '✅ 计数器已归零：校准板: {} | 颜色提取: {} | 模型转换: {}',
+            'en': '✅ Counters reset: Calibrations: {} | Extractions: {} | Conversions: {}'
+        },
+        'settings_cache_size': {
+            'zh': '📦 缓存大小: {}',
+            'en': '📦 Cache size: {}'
+        },
+
+        'theme_toggle_night': {
+            'zh': '🌙 夜间模式',
+            'en': '🌙 Night Mode'
+        },
+        'theme_toggle_day': {
+            'zh': '☀️ 日间模式',
+            'en': '☀️ Day Mode'
         },
         
         # ==================== About Page Content ====================

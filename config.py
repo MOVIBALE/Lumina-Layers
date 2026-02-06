@@ -208,8 +208,21 @@ class ColorSystem:
         'corner_labels_en': ["White (TL)", "Cyan (TR)", "Magenta (BR)", "Yellow (BL)"]
     }
 
+    EIGHT_COLOR = {
+        'name': '8-Color Max',
+        'slots': ['Slot 1 (White)', 'Slot 2 (Cyan)', 'Slot 3 (Magenta)', 'Slot 4 (Yellow)', 'Slot 5 (Black)', 'Slot 6 (Red)', 'Slot 7 (Deep Blue)', 'Slot 8 (Green)'],
+        'preview': {
+            0: [255, 255, 255, 255], 1: [0, 134, 214, 255], 2: [236, 0, 140, 255], 3: [244, 238, 42, 255],
+            4: [20, 20, 20, 255], 5: [193, 46, 31, 255], 6: [10, 41, 137, 255], 7: [0, 174, 66, 255]
+        },
+        'map': {'White': 0, 'Cyan': 1, 'Magenta': 2, 'Yellow': 3, 'Black': 4, 'Red': 5, 'Deep Blue': 6, 'Green': 7},
+        'corner_labels': ['TL', 'TR', 'BR', 'BL']
+    }
+
     @staticmethod
     def get(mode: str):
+        if "8-Color" in mode:
+            return ColorSystem.EIGHT_COLOR
         if "6-Color" in mode:
             return ColorSystem.SIX_COLOR
         return ColorSystem.CMYW if "CMYW" in mode else ColorSystem.RYBW

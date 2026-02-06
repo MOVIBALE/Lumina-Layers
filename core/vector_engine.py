@@ -75,7 +75,8 @@ class VectorProcessor:
         print(f"[VECTOR] ✅ Initialized with {len(self.img_processor.ref_stacks)} LUT colors")
 
     def svg_to_mesh(self, svg_path: str, target_width_mm: float, 
-                    thickness_mm: float, structure_mode: str = "Single-sided") -> trimesh.Scene:
+                    thickness_mm: float, structure_mode: str = "Single-sided",
+                    color_replacements: dict = None) -> trimesh.Scene:
         """
         Convert SVG file to 3D mesh scene.
         
@@ -111,7 +112,15 @@ class VectorProcessor:
         print(f"[VECTOR] Found {len(shape_data)} valid shapes. Scale: {scale_factor:.4f}")
         
         # Step 2: Group shapes by Z-layer and material
-        layer_map = self._group_by_layers(shape_data)
+        replacement_manager = None
+        if color_replacements:
+            try:
+                from core.color_replacement import ColorReplacementManager
+                replacement_manager = ColorReplacementManager.from_dict(color_replacements)
+            except Exception as e:
+                print(f"[VECTOR] Warning: Failed to load color replacements: {e}")
+
+        layer_map = self._group_by_layers(shape_data, replacement_manager)
         
         # ==================== [关键修复] 强制同步颜色配置 ====================
         # Check actual LUT size
@@ -379,7 +388,7 @@ class VectorProcessor:
         
         return final_shapes, scale_factor, (global_min_x, global_min_y, real_w, real_h)
     
-    def _group_by_layers(self, shape_data):
+    def _group_by_layers(self, shape_data, replacement_manager=None):
         """
         Group shapes by Z-layer and material ID.
         
@@ -401,7 +410,17 @@ class VectorProcessor:
             # Query KD-Tree for nearest LUT color
             query = np.array([[r, g, b]])
             _, index = self.img_processor.kdtree.query(query)
-            
+
+            # Get matched LUT color (for replacement lookup)
+            matched_rgb = tuple(int(c) for c in self.img_processor.lut_rgb[index][0])
+
+            # Apply replacement if provided (replacement keys are LUT colors)
+            if replacement_manager is not None:
+                replacement = replacement_manager.get_replacement(matched_rgb)
+                if replacement is not None:
+                    _, rep_index = self.img_processor.kdtree.query(np.array([replacement]))
+                    index = rep_index
+
             # Get 5-layer material stack
             stack = self.img_processor.ref_stacks[index][0]
             
