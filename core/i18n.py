@@ -18,8 +18,8 @@ class I18n:
             'en': '✨ Lumina Studio'
         },
         'app_subtitle': {
-            'zh': '多材料3D打印色彩系统 | v1.5.3',
-            'en': 'Multi-Material 3D Print Color System | v1.5.3'
+            'zh': '多材料3D打印色彩系统 | v1.5.4',
+            'en': 'Multi-Material 3D Print Color System | v1.5.4'
         },
         'lang_btn_zh': {
             'zh': '🌐 中文',
@@ -672,7 +672,7 @@ class I18n:
         
         # ==================== About Page Content ====================
         'about_content': {
-            'zh': """## 🌟 Lumina Studio v1.5.3
+            'zh': """## 🌟 Lumina Studio v1.5.4
 
 **多材料3D打印色彩系统**
 
@@ -706,10 +706,16 @@ class I18n:
 
 ---
 
-### 📝 v1.5.3 更新日志
+### 📝 v1.5.4 更新日志
+
+#### 🐛 矢量模式改进
+- 改进矢量模式的布尔运算逻辑
+- 优化SVG颜色顺序处理
+- 添加微Z偏移以保持细节独立性
+- 增强小特征保护机制
 
 #### 🔄 版本更新
-- 更新版本号至 v1.5.3
+- 更新版本号至 v1.5.4
 
 ---
 
@@ -781,10 +787,10 @@ class I18n:
 
 <div style="text-align:center; color:#888; margin-top:20px;">
     Made with ❤️ by [MIN]<br>
-    v1.5.3 | 2025
+    v1.5.4 | 2025
 </div>
 """,
-            'en': """## 🌟 Lumina Studio v1.5.3
+            'en': """## 🌟 Lumina Studio v1.5.4
 
 **Multi-Material 3D Print Color System**
 
@@ -818,10 +824,16 @@ Accurate color reproduction for FDM printing
 
 ---
 
-### 📝 v1.5.3 Changelog
+### 📝 v1.5.4 Changelog
+
+#### 🐛 Vector Mode Improvements
+- Improved Boolean operation logic in vector mode
+- Optimized SVG color order processing
+- Added micro Z-offset to maintain detail independence
+- Enhanced small feature protection mechanism
 
 #### 🔄 Version Update
-- Updated version number to v1.5.3
+- Updated version number to v1.5.4
 
 ---
 
@@ -893,7 +905,7 @@ Special thanks to:
 
 <div style="text-align:center; color:#888; margin-top:20px;">
     Made with ❤️ by [MIN]<br>
-    v1.5.3 | 2025
+    v1.5.4 | 2025
 </div>
 """
         },

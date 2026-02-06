@@ -111,7 +111,8 @@ class VectorProcessor:
         
         print(f"[VECTOR] Found {len(shape_data)} valid shapes. Scale: {scale_factor:.4f}")
         
-        # Step 2: Group shapes by Z-layer and material
+        # Step 2: Group shapes by SVG color (NOT by LUT material yet)
+        # This allows us to handle overlapping shapes correctly
         replacement_manager = None
         if color_replacements:
             try:
@@ -120,7 +121,117 @@ class VectorProcessor:
             except Exception as e:
                 print(f"[VECTOR] Warning: Failed to load color replacements: {e}")
 
-        layer_map = self._group_by_layers(shape_data, replacement_manager)
+        # Group by original SVG color first
+        color_groups = {}  # {svg_color: [polygons]}
+        color_order = []  # Track the order colors first appear in SVG
+        
+        for item in shape_data:
+            color_key = item['color']
+            if color_key not in color_groups:
+                color_groups[color_key] = []
+                color_order.append(color_key)  # Preserve SVG order
+            color_groups[color_key].append(item['poly'])
+        
+        print(f"[VECTOR] Found {len(color_groups)} unique SVG colors")
+        
+        # Perform Boolean operations between different colors
+        # Key insight: In SVG, later elements are drawn ON TOP
+        # So later colors should NOT be subtracted - they stay complete
+        # Earlier colors should have holes cut by later colors
+        # BUT: Small features (< 100 sq units) are preserved without subtraction
+        
+        print(f"[VECTOR] Processing {len(color_order)} colors in SVG order:")
+        for c in color_order:
+            hex_color = f'#{c[0]:02x}{c[1]:02x}{c[2]:02x}'
+            num_shapes = len(color_groups[c])
+            print(f"  {hex_color}: {num_shapes} shapes")
+        
+        final_geometries = {}  # {svg_color: final_geometry}
+        
+        # First pass: merge all polygons of each color and calculate areas
+        merged_colors = {}
+        for current_color in color_order:
+            merged = self._perform_boolean_union(color_groups[current_color])
+            if merged is not None and not merged.is_empty:
+                merged_colors[current_color] = merged
+        
+        # Second pass: perform Boolean operations, but protect small features
+        for i, current_color in enumerate(color_order):
+            if current_color not in merged_colors:
+                continue
+                
+            merged = merged_colors[current_color]
+            area = merged.area
+            hex_color = f'#{current_color[0]:02x}{current_color[1]:02x}{current_color[2]:02x}'
+            
+            # Small features are protected from Boolean subtraction
+            is_small_feature = area < 100
+            
+            if is_small_feature:
+                print(f"  {hex_color}: area={area:.2f} sq units ⭐ SMALL FEATURE - PROTECTED")
+                final_geometries[current_color] = merged
+                continue
+            
+            # For larger features, subtract from earlier colors
+            for j in range(i):
+                earlier_color = color_order[j]
+                if earlier_color not in final_geometries:
+                    continue
+                earlier_geom = final_geometries[earlier_color]
+                
+                if earlier_geom is not None and not earlier_geom.is_empty:
+                    try:
+                        # Remove the part of earlier color that overlaps with current color
+                        final_geometries[earlier_color] = earlier_geom.difference(merged)
+                    except Exception as e:
+                        print(f"[VECTOR] Warning: Boolean difference failed: {e}")
+            
+            # Current color stays complete
+            print(f"  {hex_color}: area={area:.2f} sq units")
+            final_geometries[current_color] = merged
+        
+        print(f"[VECTOR] After Boolean operations: {len(final_geometries)} color regions")
+        
+        # Now map each color to LUT and distribute to layers
+        # We need to track the order of colors for proper Z-layering
+        layer_map = {}  # {z_layer: {mat_id: [(geometry, svg_color_index)]}}
+        
+        print(f"[VECTOR] Mapping colors to LUT materials:")
+        for color_index, (svg_color, geometry) in enumerate(final_geometries.items()):
+            # Query LUT for this color
+            query = np.array([svg_color], dtype=np.float32)
+            _, index = self.img_processor.kdtree.query(query)
+            
+            # Get matched LUT color
+            matched_rgb = tuple(int(c) for c in self.img_processor.lut_rgb[index[0]])
+            
+            # Get material stack
+            stack = self.img_processor.ref_stacks[index[0]]
+            
+            hex_color = f'#{svg_color[0]:02x}{svg_color[1]:02x}{svg_color[2]:02x}'
+            print(f"  {hex_color} → LUT {matched_rgb} → Materials {stack[:5]}")
+            
+            # Apply replacement if provided
+            if replacement_manager is not None:
+                replacement = replacement_manager.get_replacement(matched_rgb)
+                if replacement is not None:
+                    _, rep_index = self.img_processor.kdtree.query(np.array([replacement]))
+                    index = rep_index
+                    stack = self.img_processor.ref_stacks[index[0]]
+                    print(f"    → Replaced with {replacement} → Materials {stack[:5]}")
+            
+            # Distribute to layers with color order tracking
+            num_layers_to_use = min(5, len(stack))
+            for z in range(num_layers_to_use):
+                mat_id = stack[z]
+                
+                if z not in layer_map:
+                    layer_map[z] = {}
+                if mat_id not in layer_map[z]:
+                    layer_map[z][mat_id] = []
+                
+                # Store geometry with its original color index for Z-ordering
+                layer_map[z][mat_id].append((geometry, color_index))
         
         # ==================== [关键修复] 强制同步颜色配置 ====================
         # Check actual LUT size
@@ -147,23 +258,28 @@ class VectorProcessor:
         for z in range(num_layers):
             if z not in layer_map:
                 continue
-            for mat_id, polys in layer_map[z].items():
-                all_polygons.extend(polys)
+            for mat_id, geom_list in layer_map[z].items():
+                # Extract just the geometries (ignore color indices)
+                all_polygons.extend([g for g, _ in geom_list])
         
         # Step 5: Create silhouette backing
         print(f"[VECTOR] Creating silhouette backing from {len(all_polygons)} polygons...")
         silhouette = self._perform_boolean_union(all_polygons)
         
         # Step 6: Generate meshes for color layers
+        # Handle multiple SVG colors mapping to same material by using micro Z-offsets
         layer_h = PrinterConfig.LAYER_HEIGHT
         meshes_by_slot = {}
+        
+        # Micro offset for overlapping colors on same material (0.001mm per color)
+        MICRO_OFFSET = 0.001
         
         for z in range(num_layers):
             if z not in layer_map:
                 continue
             
-            for mat_id, polys in layer_map[z].items():
-                if not polys:
+            for mat_id, geom_list in layer_map[z].items():
+                if not geom_list:
                     continue
                 
                 # 安全检查：防止脏数据导致的越界
@@ -171,19 +287,35 @@ class VectorProcessor:
                     print(f"[VECTOR] ⚠️ Skipping invalid mat_id {mat_id} (max {len(slot_names)-1})")
                     continue
                 
-                merged_geometry = self._perform_boolean_union(polys)
-                current_z = z * layer_h
-                slot_name = slot_names[mat_id]
-                new_meshes = self._extrude_geometry(
-                    merged_geometry, 
-                    height=layer_h, 
-                    z_offset=current_z, 
-                    scale=scale_factor
-                )
+                # Sort by color index to maintain SVG order
+                geom_list.sort(key=lambda x: x[1])
                 
-                if slot_name not in meshes_by_slot:
-                    meshes_by_slot[slot_name] = {'meshes': [], 'mat_id': mat_id}
-                meshes_by_slot[slot_name]['meshes'].extend(new_meshes)
+                # Process each geometry separately with micro Z-offset
+                # This prevents small features from being lost in union operations
+                slot_name = slot_names[mat_id]
+                
+                for offset_idx, (geometry, color_idx) in enumerate(geom_list):
+                    if geometry is None or geometry.is_empty:
+                        continue
+                    
+                    # Calculate Z position with micro offset
+                    # Later colors (higher color_idx) get slightly higher Z
+                    current_z = z * layer_h + (offset_idx * MICRO_OFFSET)
+                    
+                    new_meshes = self._extrude_geometry(
+                        geometry, 
+                        height=layer_h, 
+                        z_offset=current_z, 
+                        scale=scale_factor
+                    )
+                    
+                    if len(new_meshes) == 0:
+                        geom_area = geometry.area
+                        print(f"[VECTOR] ⚠️ No meshes generated for mat_id={mat_id}, z={z}, area={geom_area:.2f}")
+                    
+                    if slot_name not in meshes_by_slot:
+                        meshes_by_slot[slot_name] = {'meshes': [], 'mat_id': mat_id}
+                    meshes_by_slot[slot_name]['meshes'].extend(new_meshes)
         
         # Step 7: Generate backing layer
         backing_layers = max(1, int(round(thickness_mm / layer_h)))
@@ -226,23 +358,34 @@ class VectorProcessor:
                 inverted_z = (num_layers - 1) - z
                 current_z = top_z_start + (inverted_z * layer_h)
                 
-                for mat_id, polys in layer_map[z].items():
-                    if not polys:
+                for mat_id, geom_list in layer_map[z].items():
+                    if not geom_list:
                         continue
                     if mat_id >= len(slot_names):  # 安全检查
                         continue
                     
-                    merged_geometry = self._perform_boolean_union(polys)
                     slot_name = slot_names[mat_id]
-                    new_meshes = self._extrude_geometry(
-                        merged_geometry,
-                        height=layer_h,
-                        z_offset=current_z,
-                        scale=scale_factor
-                    )
                     
-                    if slot_name in meshes_by_slot:
-                        meshes_by_slot[slot_name]['meshes'].extend(new_meshes)
+                    # Sort by color index
+                    geom_list.sort(key=lambda x: x[1])
+                    
+                    # Process each geometry separately with micro Z-offset
+                    for offset_idx, (geometry, color_idx) in enumerate(geom_list):
+                        if geometry is None or geometry.is_empty:
+                            continue
+                        
+                        # Calculate Z position with micro offset
+                        current_z_with_offset = current_z + (offset_idx * MICRO_OFFSET)
+                        
+                        new_meshes = self._extrude_geometry(
+                            geometry,
+                            height=layer_h,
+                            z_offset=current_z_with_offset,
+                            scale=scale_factor
+                        )
+                        
+                        if slot_name in meshes_by_slot:
+                            meshes_by_slot[slot_name]['meshes'].extend(new_meshes)
         
         # Step 9: Merge and Assemble
         scene = trimesh.Scene()
