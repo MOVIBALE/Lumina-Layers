@@ -491,7 +491,7 @@ def convert_image_to_3d(image_path, lut_path, target_width_mm, spacer_thick,
     print(f"[CONVERTER] Image processed: {target_w}×{target_h}px, scale={pixel_scale}mm/px")
     
     # Step 2: Save Debug Preview (High-Fidelity mode only)
-    if debug_data is not None and mode_info['use_high_fidelity']:
+    if debug_data is not None and mode_info['mode'] == ModelingMode.HIGH_FIDELITY:
         try:
             num_materials = len(slot_names)
             _save_debug_preview(
@@ -650,7 +650,7 @@ def convert_image_to_3d(image_path, lut_path, target_width_mm, spacer_thick,
     # Step 10: Generate Status Message
     Stats.increment("conversions")
     
-    mode_name = mode_info['name']
+    mode_name = mode_info['mode'].get_display_name()
     msg = f"✅ Conversion complete ({mode_name})! Resolution: {target_w}×{target_h}px"
     
     if loop_added:
