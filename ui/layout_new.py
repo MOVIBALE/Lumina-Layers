@@ -1180,6 +1180,10 @@ def process_batch_generation(batch_files, is_batch, single_image, lut_path, targ
     Returns:
         tuple: (file_or_zip_path, model3d_value, preview_image, status_text).
     """
+    # The uploaded batch payload is authoritative.  Some browser app shells can
+    # retain a stale checkbox value while still submitting the selected files.
+    is_batch = bool(is_batch or batch_files)
+
     # Handle None modeling_mode (use default)
     if modeling_mode is None or modeling_mode == "none":
         modeling_mode = ModelingMode.HIGH_FIDELITY
@@ -1194,7 +1198,9 @@ def process_batch_generation(batch_files, is_batch, single_image, lut_path, targ
     
     args = (lut_path, target_width_mm, spacer_thick, structure_mode, auto_bg, bg_tol,
             color_mode, add_loop, loop_width, loop_length, loop_hole, loop_pos,
-            modeling_mode, quantize_colors, replacement_regions, backing_color_name,
+            modeling_mode, quantize_colors,
+            None,  # color_replacements; batch mode only supplies per-region replacements
+            replacement_regions, backing_color_name,
             separate_backing, enable_relief, color_height_map,
             height_mode,
             heightmap_path, heightmap_max_height,
@@ -1264,7 +1270,7 @@ def process_batch_generation(batch_files, is_batch, single_image, lut_path, targ
         logs.append(f"[{i+1}/{total_files}] 正在生成: {filename}")
 
         try:
-            result_3mf, _, _, _ = generate_final_model(path, *args, hue_weight=float(hue_weight) if hue_weight else 0.0)
+            result_3mf, _, _, _, _ = generate_final_model(path, *args, hue_weight=float(hue_weight) if hue_weight else 0.0)
 
             if result_3mf and os.path.exists(result_3mf):
                 new_name = os.path.splitext(filename)[0] + ".3mf"
